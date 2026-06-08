@@ -1,0 +1,476 @@
+{
+  "tag": "a100",
+  "status": "done",
+  "started_unix": 1780790777.7285795,
+  "search_minutes_per_size": 15.0,
+  "steps": {
+    "correctness_retarget_perf": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "cap": "sm_80",
+      "torch": "2.11.0+cu128",
+      "checks": {
+        "retarget_decode_2L": {
+          "ran_on_gpu": true,
+          "max_err_vs_ref": 3.129243850708008e-07,
+          "max_err_vs_eager": 3.129243850708008e-07,
+          "pass": true
+        },
+        "scale_bench": {
+          "scale": "small",
+          "dtype": "bf16",
+          "tasks": 1522,
+          "weight_MB": 622.9,
+          "correct": true,
+          "max_err": 0.015625,
+          "median_latency_us": 3315.71,
+          "roofline_bound_us": 400.573,
+          "pct_of_bound": 827.7,
+          "hbm_util_pct": 12.08,
+          "target_for_roofline": "a100"
+        }
+      }
+    },
+    "peak_bandwidth": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "cap": "sm_80",
+      "torch": "2.11.0+cu128",
+      "buffer_MB": 1073.7,
+      "warmup": 30,
+      "iters": 150,
+      "d2d_copy_gbs": 1378.8,
+      "d2d_copy_median_gbs": 1373.4,
+      "triad_gbs": 1366.5,
+      "triad_median_gbs": 1363.9,
+      "measured_peak_gbs": 1378.8,
+      "clock_state": "1410 MHz, 1410 MHz, 1215 MHz, 237.73 W, 32, 0x0000000000000000",
+      "note": "real sustained HBM bandwidth (CUDA-event timed D2D copy + STREAM triad); peak = best-boosted sample. The fair roofline denominator vs the spec figure."
+    },
+    "precision_vs_cublas": [
+      {
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "cap": "sm_80",
+        "target": "a100",
+        "layers": 4,
+        "weight_MB": {
+          "bf16": 622.9,
+          "int8": 380.8
+        },
+        "floor_us": {
+          "bf16": 400.6,
+          "int8": 244.9
+        },
+        "quality": {
+          "int8_max_err": 0.0195,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0156
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.4475,
+            "p10": 0.2768,
+            "p90": 0.4528,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.3866,
+            "p10": 0.2828,
+            "p90": 0.3894,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.3782,
+            "p10": 0.2624,
+            "p90": 0.3811,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      },
+      {
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "cap": "sm_80",
+        "target": "a100",
+        "layers": 8,
+        "weight_MB": {
+          "bf16": 983.6,
+          "int8": 564.0
+        },
+        "floor_us": {
+          "bf16": 632.6,
+          "int8": 362.7
+        },
+        "quality": {
+          "int8_max_err": 0.0234,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0166
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.5813,
+            "p10": 0.3771,
+            "p90": 0.5859,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.4803,
+            "p10": 0.3544,
+            "p90": 0.484,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.4661,
+            "p10": 0.3286,
+            "p90": 0.4685,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      },
+      {
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "cap": "sm_80",
+        "target": "a100",
+        "layers": 16,
+        "weight_MB": {
+          "bf16": 1705.1,
+          "int8": 930.5
+        },
+        "floor_us": {
+          "bf16": 1096.5,
+          "int8": 598.4
+        },
+        "quality": {
+          "int8_max_err": 0.0322,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0273
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.7096,
+            "p10": 0.5191,
+            "p90": 0.7144,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.5629,
+            "p10": 0.4328,
+            "p90": 0.5665,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.5415,
+            "p10": 0.3965,
+            "p90": 0.5441,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      }
+    ],
+    "int8_self_tune_search": [
+      {
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "cap": "sm_80",
+        "target": "a100",
+        "layers": 4,
+        "int8_floor_us": 244.9,
+        "configs_correct": 20,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 8100,
+          "ratio_median": 0.4534,
+          "ratio_p10": 0.2538,
+          "ratio_p90": 0.4584,
+          "max_err": 0.0195
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 8100,
+            "ratio_median": 0.4534,
+            "ratio_p10": 0.2538,
+            "ratio_p90": 0.4584,
+            "max_err": 0.0195
+          },
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 8100,
+            "ratio_median": 0.4489,
+            "ratio_p10": 0.2857,
+            "ratio_p90": 0.4541,
+            "max_err": 0.0195
+          },
+          {
+            "qc": 2,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 7950,
+            "ratio_median": 0.4396,
+            "ratio_p10": 0.2777,
+            "ratio_p90": 0.4448,
+            "max_err": 0.0195
+          },
+          {
+            "qc": 2,
+            "N_tile": 64,
+            "threads": 512,
+            "n": 7950,
+            "ratio_median": 0.4295,
+            "ratio_p10": 0.2697,
+            "ratio_p90": 0.4346,
+            "max_err": 0.0195
+          },
+          {
+            "qc": 2,
+            "N_tile": 128,
+            "threads": 512,
+            "n": 7950,
+            "ratio_median": 0.4046,
+            "ratio_p10": 0.2485,
+            "ratio_p90": 0.4092,
+            "max_err": 0.0195
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      },
+      {
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "cap": "sm_80",
+        "target": "a100",
+        "layers": 8,
+        "int8_floor_us": 362.7,
+        "configs_correct": 20,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 5550,
+          "ratio_median": 0.5879,
+          "ratio_p10": 0.3806,
+          "ratio_p90": 0.5947,
+          "max_err": 0.0234
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 5550,
+            "ratio_median": 0.5879,
+            "ratio_p10": 0.3806,
+            "ratio_p90": 0.5947,
+            "max_err": 0.0234
+          },
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 5550,
+            "ratio_median": 0.5841,
+            "ratio_p10": 0.3758,
+            "ratio_p90": 0.5915,
+            "max_err": 0.0234
+          },
+          {
+            "qc": 2,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 5550,
+            "ratio_median": 0.5703,
+            "ratio_p10": 0.3663,
+            "ratio_p90": 0.5767,
+            "max_err": 0.0234
+          },
+          {
+            "qc": 2,
+            "N_tile": 64,
+            "threads": 512,
+            "n": 5400,
+            "ratio_median": 0.5565,
+            "ratio_p10": 0.3516,
+            "ratio_p90": 0.5631,
+            "max_err": 0.0234
+          },
+          {
+            "qc": 2,
+            "N_tile": 128,
+            "threads": 512,
+            "n": 5400,
+            "ratio_median": 0.5029,
+            "ratio_p10": 0.3227,
+            "ratio_p90": 0.5084,
+            "max_err": 0.0234
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      },
+      {
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "cap": "sm_80",
+        "target": "a100",
+        "layers": 16,
+        "int8_floor_us": 598.4,
+        "configs_correct": 20,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 3150,
+          "ratio_median": 0.7115,
+          "ratio_p10": 0.5427,
+          "ratio_p90": 0.7167,
+          "max_err": 0.0322
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 3150,
+            "ratio_median": 0.7115,
+            "ratio_p10": 0.5427,
+            "ratio_p90": 0.7167,
+            "max_err": 0.0322
+          },
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 3150,
+            "ratio_median": 0.6879,
+            "ratio_p10": 0.4697,
+            "ratio_p90": 0.6926,
+            "max_err": 0.0322
+          },
+          {
+            "qc": 2,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 3150,
+            "ratio_median": 0.6768,
+            "ratio_p10": 0.4579,
+            "ratio_p90": 0.6826,
+            "max_err": 0.0322
+          },
+          {
+            "qc": 2,
+            "N_tile": 64,
+            "threads": 512,
+            "n": 3150,
+            "ratio_median": 0.6544,
+            "ratio_p10": 0.4589,
+            "ratio_p90": 0.6596,
+            "max_err": 0.0322
+          },
+          {
+            "qc": 2,
+            "N_tile": 128,
+            "threads": 512,
+            "n": 3150,
+            "ratio_median": 0.5846,
+            "ratio_p10": 0.4314,
+            "ratio_p90": 0.589,
+            "max_err": 0.0322
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      },
+      {
+        "gpu": "NVIDIA A100-SXM4-40GB",
+        "cap": "sm_80",
+        "target": "a100",
+        "layers": 24,
+        "int8_floor_us": 834.0,
+        "configs_correct": 20,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 2250,
+          "ratio_median": 0.7622,
+          "ratio_p10": 0.6196,
+          "ratio_p90": 0.7673,
+          "max_err": 0.0366
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.7622,
+            "ratio_p10": 0.6196,
+            "ratio_p90": 0.7673,
+            "max_err": 0.0366
+          },
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.7352,
+            "ratio_p10": 0.5965,
+            "ratio_p90": 0.7408,
+            "max_err": 0.0366
+          },
+          {
+            "qc": 2,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.7264,
+            "ratio_p10": 0.5735,
+            "ratio_p90": 0.7329,
+            "max_err": 0.0366
+          },
+          {
+            "qc": 2,
+            "N_tile": 64,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.7,
+            "ratio_p10": 0.5395,
+            "ratio_p90": 0.7054,
+            "max_err": 0.0366
+          },
+          {
+            "qc": 2,
+            "N_tile": 128,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.6178,
+            "ratio_p10": 0.4747,
+            "ratio_p90": 0.622,
+            "max_err": 0.0366
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      }
+    ],
+    "ncu_profile": {
+      "ncu": "/opt/nvidia/nsight-compute/2025.1.1/ncu",
+      "scale": "small",
+      "dtype": "bf16",
+      "rc": 9,
+      "dram_pct_of_peak": null,
+      "sm_pct_of_peak": null,
+      "raw_tail": "==WARNING== Note: Running with unmodified GPU clocks. If not controlled otherwise, profiling results may be inconsistent.\n==PROF== Connected to process 554 (/usr/local/bin/python3)\n\n==ERROR== An error was reported by the counter measurement library:\n==ERROR== Failed to initialize the profiler: LibraryNotLoaded. Check that a compatible driver library is loaded.\n==PROF== Trying to shutdown target application\n==ERROR== The application returned an error code (9).\n\n"
+    }
+  },
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "cap": "sm_80",
+  "elapsed_min": 63.6
+}

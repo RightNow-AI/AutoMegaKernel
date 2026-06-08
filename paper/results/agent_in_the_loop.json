@@ -1,0 +1,52 @@
+{
+  "demo": "coding-agent-in-the-loop driving the AMK harness (AutoKernel-style: read surface -> propose -> eval -> keep/revert -> record), no algorithmic proposer",
+  "driver": "Claude (the coding agent) reasoning between each trial; candidates hand-formed from the decode optimization playbook, NOT from the built-in prior/mutation",
+  "model": "small bf16 (hidden2048/4L/GQA inter5632/vocab32000), 622 MB weights",
+  "gpu": "RTX 5090 Laptop (sm_120), WDDM",
+  "device": "cuda",
+  "surface_used": "amk_cli.py eval (harness.evaluate) + amk_orchestrate.py record/status/report",
+  "fitness": "CUDA-event median, correctness-gated vs CPU ReferenceVM at the model's native (bf16) tolerance; latency NEVER emitted without a correctness PASS; sub-roofline latencies withheld by the physical-floor guard",
+  "campaign": {
+    "experiments_run": 12,
+    "experiments_kept": 6,
+    "consecutive_reverts_at_end": 4,
+    "baseline_us_single": 2301.264,
+    "best_config": {"N_tile": 32, "cols_per_warp": 4, "threads_per_block": 512, "cpasync": 1, "cpa_stages": 4},
+    "best_us_single": 1527.9
+  },
+  "trials": [
+    {"cand": "baseline (N_tile=256, default knobs)", "us": 2301.26, "decision": "baseline"},
+    {"cand": "cols_per_warp=2 (N_tile=256)", "us": 2273.49, "decision": "kept (marginal 1.2%)"},
+    {"cand": "N_tile=32 (thin tiles)", "us": 1783.47, "decision": "kept (1.29x), grounded in lower.py auto-size note"},
+    {"cand": "N_tile=32 + cols_per_warp=2", "us": 1665.17, "decision": "kept (levers stack)"},
+    {"cand": "N_tile=32 + cols_per_warp=4", "us": 1602.91, "decision": "kept (cpw4 > cpw2)"},
+    {"cand": "N_tile=16 + cols_per_warp=2", "us": 1647.23, "decision": "revert (N_tile<32 regresses, matches code note)"},
+    {"cand": "threads_per_block=128", "us": 1915.89, "decision": "revert (too few threads)"},
+    {"cand": "threads_per_block=512", "us": 1527.90, "decision": "kept (best)"},
+    {"cand": "cpa_stages=2", "us": 1956.11, "decision": "revert (shallow cp.async pipeline)"},
+    {"cand": "threads_per_block=1024", "us": null, "decision": "rejected, cp.async SMEM 153600 > 101376 cap; cost-model fallback predicted 87.6us which is BELOW the 695us HBM floor (physically impossible) -> WITHHELD by the floor guard"},
+    {"cand": "threads=512 + cols_per_warp=2", "us": 1710.34, "decision": "revert (cpw2 < cpw4)"},
+    {"cand": "threads=512 + cpasync=0 (register path)", "us": 1610.53, "decision": "revert (cp.async helps)"}
+  ],
+  "drift_robust_confirmation": {
+    "method": "7 interleaved back-to-back A/B rounds (baseline vs best at the same thermal state, cancels WDDM clock drift)",
+    "median_baseline_us": 2513.7,
+    "median_best_us": 1991.2,
+    "median_per_round_speedup": 1.251,
+    "speedup_range": [1.083, 1.389],
+    "every_round_faster_than_baseline": true
+  },
+  "headline_speedup": "1.25x median (drift-robust, interleaved), range 1.08-1.39x; all 7 rounds > 1.0x",
+  "honesty_notes": [
+    "The drift-robust interleaved median (1.25x) is the number we trust; the single-shot 1.51x was a favorable-thermal-moment reading (both baseline and best latencies drifted UP as the session heated the laptop GPU).",
+    "A physically-impossible sub-roofline latency (threads=1024 cost-model fallback, 87.6us < 695us floor) was caught and withheld by a new floor guard, not reported as a win.",
+    "Every kept step was correctness-gated (CPU ReferenceVM vs eager, bf16 tolerance); no latency exists without a PASS."
+  ],
+  "harness_changes_made_to_enable_this": [
+    "harness.evaluate now threads a reserved kernel_knobs object (cols_per_warp/cpasync/cpa_stages/cpa_cols) to MegakernelVM(knobs=...) so the documented agent surface reaches the real measured headroom (default knobs == byte-identical incumbent).",
+    "harness.evaluate now infers the model's native dtype and lowers + gates correctness at that precision (a bf16 model is judged at bf16 tolerance; previously hardcoded fp32 falsely FAILED correct bf16 megakernels).",
+    "harness.evaluate now WITHHOLDS any latency below the HBM roofline floor (physically impossible), the same honesty discipline as the correctness gate.",
+    "propose()/search_space now document the kernel_knobs sub-surface so an agent reads it."
+  ],
+  "tests": "77 passed"
+}

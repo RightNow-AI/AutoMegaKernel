@@ -1,0 +1,10 @@
+# Normalize line endings: store LF in the repo, auto-convert on checkout. Keeps the public
+# repo clean across Windows / Linux / macOS contributors (no CRLF churn in diffs).
+* text=auto eol=lf
+
+# Binary assets: never normalize.
+*.png binary
+*.jpg binary
+*.pdf binary
+*.cubin binary
+*.ptx binary

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "automegakernel": {
+      "command": "uv",
+      "args": ["run", "--extra", "agent", "python", "amk_mcp.py"]
+    }
+  }
+}

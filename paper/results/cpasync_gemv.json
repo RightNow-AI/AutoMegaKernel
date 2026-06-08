@@ -1,0 +1,68 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "model": "small_4L_h2048_i5632_v32000",
+  "iters": 100,
+  "warmup": 25,
+  "weight_bytes": 622891008,
+  "hbm_spec_gbs": 896.0,
+  "hbm_measured_gbs": 731.0,
+  "before": {
+    "label": "before_register",
+    "knobs": {
+      "cpasync": 0
+    },
+    "kernel_us": 1944.000005722046,
+    "token_us": 2248.960018157959,
+    "kernel_gbs": 320.4171842420567,
+    "token_gbs": 276.9684667449923,
+    "pct_roof_meas_kernel": 43.83272014255221,
+    "pct_roof_meas_token": 37.88898313884984,
+    "pct_roof_spec_kernel": 35.76084645558669,
+    "dyn_smem_bytes": 0,
+    "grid": 82,
+    "max_err_vs_ref": 0.015625,
+    "rounds_kernel_us": [
+      1874.3360042572021,
+      1910.5279445648193,
+      1944.000005722046,
+      1946.1760520935059,
+      1954.3039798736572
+    ]
+  },
+  "after": {
+    "label": "after_cpasync",
+    "knobs": {
+      "cols_per_warp": 1,
+      "kunroll": 1,
+      "lb_maxthreads": 0,
+      "lb_minblocks": 0,
+      "gemv_max_k": 0,
+      "cpasync": 1,
+      "cpa_cols": 2,
+      "cpa_stages": 4,
+      "cpa_vpl": 1
+    },
+    "kernel_us": 1798.2720136642456,
+    "token_us": 2151.711940765381,
+    "kernel_gbs": 346.3830851322472,
+    "token_gbs": 289.4862440454891,
+    "pct_roof_meas_kernel": 47.38482696747568,
+    "pct_roof_meas_token": 39.60140137421192,
+    "pct_roof_spec_kernel": 38.658826465652595,
+    "dyn_smem_bytes": 55296,
+    "grid": 82,
+    "max_err_vs_ref": 0.015625,
+    "rounds_kernel_us": [
+      1713.1839990615845,
+      1760.3520154953003,
+      1798.2720136642456,
+      1851.040005683899,
+      1853.0559539794922
+    ]
+  },
+  "kernel_speedup": 1.081037791252091,
+  "token_speedup": 1.0451956767772486,
+  "measured_before_after": "320 GB/s, 44% meas -> 346 GB/s, 47% meas (1.08x)",
+  "correctness_preserved": true,
+  "headline": "cp.async double-buffered decode GEMV: kernel-only 44% -> 47% of 731 GB/s MEASURED roofline (1.08x); correctness preserved (max_err 1.6e-02 <= 2e-2 bf16)."
+}

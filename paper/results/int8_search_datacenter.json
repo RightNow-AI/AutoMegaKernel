@@ -1,0 +1,146 @@
+{
+  "A100": {
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "cap": "sm_80",
+    "target": "a100",
+    "layers": 4,
+    "int8_floor_us": 244.9,
+    "configs_correct": 20,
+    "best_int8_config": {
+      "qc": 2,
+      "N_tile": 16,
+      "threads": 512,
+      "n": 6300,
+      "ratio_median": 0.4467,
+      "ratio_p10": 0.2961,
+      "ratio_p90": 0.4518,
+      "max_err": 0.0195
+    },
+    "int8_crosses_cublas": false,
+    "top5": [
+      {
+        "qc": 2,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 6300,
+        "ratio_median": 0.4467,
+        "ratio_p10": 0.2961,
+        "ratio_p90": 0.4518,
+        "max_err": 0.0195
+      },
+      {
+        "qc": 2,
+        "N_tile": 32,
+        "threads": 512,
+        "n": 6300,
+        "ratio_median": 0.4461,
+        "ratio_p10": 0.2743,
+        "ratio_p90": 0.4514,
+        "max_err": 0.0195
+      },
+      {
+        "qc": 2,
+        "N_tile": 48,
+        "threads": 512,
+        "n": 6300,
+        "ratio_median": 0.4349,
+        "ratio_p10": 0.2771,
+        "ratio_p90": 0.4406,
+        "max_err": 0.0195
+      },
+      {
+        "qc": 2,
+        "N_tile": 64,
+        "threads": 512,
+        "n": 6300,
+        "ratio_median": 0.4255,
+        "ratio_p10": 0.295,
+        "ratio_p90": 0.4304,
+        "max_err": 0.0195
+      },
+      {
+        "qc": 2,
+        "N_tile": 128,
+        "threads": 512,
+        "n": 6300,
+        "ratio_median": 0.4012,
+        "ratio_p10": 0.2674,
+        "ratio_p90": 0.406,
+        "max_err": 0.0195
+      }
+    ],
+    "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+  },
+  "H100": {
+    "gpu": "NVIDIA H100 80GB HBM3",
+    "cap": "sm_90",
+    "target": "h100",
+    "layers": 4,
+    "int8_floor_us": 113.7,
+    "configs_correct": 25,
+    "best_int8_config": {
+      "qc": 2,
+      "N_tile": 32,
+      "threads": 512,
+      "n": 4950,
+      "ratio_median": 0.2481,
+      "ratio_p10": 0.1735,
+      "ratio_p90": 0.2519,
+      "max_err": 0.0205
+    },
+    "int8_crosses_cublas": false,
+    "top5": [
+      {
+        "qc": 2,
+        "N_tile": 32,
+        "threads": 512,
+        "n": 4950,
+        "ratio_median": 0.2481,
+        "ratio_p10": 0.1735,
+        "ratio_p90": 0.2519,
+        "max_err": 0.0205
+      },
+      {
+        "qc": 2,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 4950,
+        "ratio_median": 0.2466,
+        "ratio_p10": 0.1844,
+        "ratio_p90": 0.2503,
+        "max_err": 0.0205
+      },
+      {
+        "qc": 4,
+        "N_tile": 32,
+        "threads": 512,
+        "n": 4800,
+        "ratio_median": 0.2422,
+        "ratio_p10": 0.1761,
+        "ratio_p90": 0.2459,
+        "max_err": 0.0205
+      },
+      {
+        "qc": 4,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 4950,
+        "ratio_median": 0.2396,
+        "ratio_p10": 0.167,
+        "ratio_p90": 0.2431,
+        "max_err": 0.0205
+      },
+      {
+        "qc": 2,
+        "N_tile": 48,
+        "threads": 512,
+        "n": 4950,
+        "ratio_median": 0.2384,
+        "ratio_p10": 0.1803,
+        "ratio_p90": 0.242,
+        "max_err": 0.0205
+      }
+    ],
+    "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+  }
+}

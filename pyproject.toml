@@ -1,0 +1,140 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "automegakernel"
+version = "0.2.0"
+description = "AutoMegaKernel (AMK), autonomously generate a single correct, near-bandwidth-optimal megakernel for any model on any GPU."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "RightNow AI" }]
+keywords = ["gpu", "cuda", "megakernel", "compiler", "llm-inference", "kernel-fusion"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Compilers",
+    "Intended Audience :: Developers",
+]
+
+# Core dependencies are GPU-toolchain-light on purpose: the IR, the DAG validator,
+# the CPU reference VM, the oracle and the cost model all run with just torch + numpy.
+# Triton is optional (its Windows support is a separate wheel) and the CUDA backend is
+# built on demand via torch.utils.cpp_extension + nvcc.
+dependencies = [
+    "numpy>=2.0.0",
+    "torch>=2.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/RightNow-AI/automegakernel"
+Repository = "https://github.com/RightNow-AI/automegakernel"
+Issues = "https://github.com/RightNow-AI/automegakernel/issues"
+
+[project.optional-dependencies]
+# Fast-iteration instruction backend. On Windows install `triton-windows` instead.
+triton = ["triton>=3.3.0; platform_system != 'Windows'"]
+# HuggingFace model import (the `any model` promise / graph importer).
+models = ["transformers>=4.50.0", "accelerate>=1.5.0", "safetensors>=0.5.0"]
+# Reporting / flywheel analysis.
+analysis = ["pandas>=2.2.0", "matplotlib>=3.10.0"]
+# CUDA JIT build helper.
+cuda = ["ninja>=1.11.0"]
+# Native coding-agent integration: the MCP server (amk_mcp.py / `amk-mcp`) that exposes the
+# harness + autoresearch + orchestrator to Claude Code / Codex over the Model Context Protocol.
+agent = ["mcp>=1.2"]
+
+# The dev environment `uv sync` provisions by default (PEP 735 dependency-group). uv installs the
+# `dev` group automatically, so a bare `uv sync` gives you the full test surface: pytest + ruff,
+# the HF importer (transformers/accelerate/safetensors, the "any model" + checkpoint tests),
+# the CUDA JIT helper (ninja), and the reporting deps. Plain `pip install automegakernel[models]`
+# still works for downstream consumers via the [project.optional-dependencies] extras above.
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.6.0",
+    "ninja>=1.11.0",
+    "transformers>=4.50.0",
+    "accelerate>=1.5.0",
+    "safetensors>=0.5.0",
+    "pandas>=2.2.0",
+    "matplotlib>=3.10.0",
+]
+
+# `amk` becomes a real console command after `uv sync` (-> `uv run amk doctor`).
+[project.scripts]
+amk = "amk_cli:main"
+# The MCP server entry point (after `uv sync --extra agent` / `pip install automegakernel[agent]`).
+amk-mcp = "amk_mcp:main"
+
+# AMK is a research monorepo of top-level scripts + sibling packages. We ship it as a proper
+# editable install (hatchling) so `uv run amk ...` works AND every `import vm` / `import schedule`
+# / `import harness` keeps resolving exactly as it does under `uv run python amk_cli.py`.
+[tool.hatch.build.targets.wheel]
+# The sibling packages (each has an __init__.py; `dynamism` is an as-yet-empty Layer-3 placeholder).
+packages = [
+    "vm",
+    "schedule",
+    "instructions",
+    "eval",
+    "dynamism",
+    "flywheel",
+    "models",
+]
+# The top-level single-file modules the CLI / harness / product import by name.
+#
+# NOTE: `include = [...]` alone copies these as DATA (sdist/wheel payload), NOT as importable
+# top-level modules, so `import harness` / the `amk` + `amk-mcp` console scripts would raise
+# ModuleNotFoundError on a clean wheel install. `force-include` below maps each shipped root
+# module to itself so hatchling places it at the wheel root as a real importable module. We
+# enumerate EVERY root .py reachable from the console scripts / package imports
+# (amk_cli -> harness, loop1, autoresearch, compile; amk_mcp -> harness, autoresearch,
+# amk_orchestrate; harness -> generate, compile; etc.), EXCLUDING the gitignored modal_app.py
+# (paper-results infra, not product) and conftest.py (pytest-only, never imported as a module).
+include = [
+    "amk_cli.py",
+    "amk_mcp.py",
+    "compile.py",
+    "generate.py",
+    "harness.py",
+    "autoresearch.py",
+    "amk_orchestrate.py",
+    "loop1.py",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"amk_cli.py" = "amk_cli.py"
+"amk_mcp.py" = "amk_mcp.py"
+"compile.py" = "compile.py"
+"generate.py" = "generate.py"
+"harness.py" = "harness.py"
+"autoresearch.py" = "autoresearch.py"
+"amk_orchestrate.py" = "amk_orchestrate.py"
+"loop1.py" = "loop1.py"
+
+# RTX 5090 / Blackwell consumer (sm_120) and datacenter Blackwell (B200, sm_100) both
+# need the cu128 wheel line. The cu128 runtime is forward-compatible with the installed
+# CUDA 13 driver.
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+markers = [
+    "cuda: test requires an available CUDA GPU + nvcc (skipped otherwise)",
+    "slow: long-running test",
+]

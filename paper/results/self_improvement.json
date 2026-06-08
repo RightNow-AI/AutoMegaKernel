@@ -1,0 +1,42 @@
+{
+  "what": "Self-improving autoresearch: the harness (or a coding agent driving it) autonomously improves the megakernel over AMK's own default schedule, correctness-gated and drift-robust.",
+  "search_space": "COMBINED candidate = ScheduleConfig (tiling/fusion/sm/pipelining/page/threads/smem) + kernel_knobs (cols_per_warp, cpasync, cpa_stages, cpa_cols). The kernel knobs are the MegakernelVM compile-time GEMV build knobs; the ScheduleConfig's N_tile + threads_per_block are the schedule-side levers that also move measured latency.",
+  "fitness": "CUDA-event median (warmup 25, iters 100), correctness-gated vs the CPU ReferenceVM at the model's native dtype tolerance; keep/revert decided by INTERLEAVED back-to-back A/B re-measurement of candidate vs resident incumbent (cancels WDDM clock drift); >2% margin to keep.",
+  "honesty_guards": [
+    "no latency without a correctness PASS",
+    "physical-floor guard: any latency below weights/HBM-bandwidth floor is withheld as an artifact (caught a silent infeasible-launch / cost-model fallback at 87.6us < 695us floor)",
+    "drift-robust interleaved keep/revert (a candidate reading lower standalone is reverted if same-clock it is not >2% faster)"
+  ],
+  "model": "small bf16 (hidden2048/4L/GQA inter5632/vocab32000), 622 MB weights, RTX 5090 Laptop sm_120",
+  "results": {
+    "agent_in_the_loop": {
+      "driver": "a coding agent (Claude) hand-forming candidates from the decode playbook, driving amk eval + amk_orchestrate record",
+      "experiments": 12, "kept": 6,
+      "best_config": {"N_tile": 32, "cols_per_warp": 4, "threads_per_block": 512, "cpasync": 1, "cpa_stages": 4},
+      "drift_robust_median_speedup": 1.25,
+      "speedup_range": [1.08, 1.39],
+      "method": "7 interleaved A/B rounds; median baseline 2514us -> median best 1991us",
+      "single_shot_speedup_seen": 1.51,
+      "note": "single-shot 1.51x was a favorable-thermal-moment reading; the drift-robust interleaved 1.25x is the number we report"
+    },
+    "autoresearch_combined_cold_warm": {
+      "cold_default_us": 2168.35, "cold_best_us": 1261.15,
+      "cold_within_run_speedup": 1.72, "cold_iters_to_best": 2,
+      "warm_start_us": 1532.93, "warm_start_vs_cold_start_speedup": 1.41,
+      "note": "within-run cold speedup is drift-free; cross-run absolute carries WDDM drift (flagged). Warm = flywheel corpus seed.",
+      "source": "paper/results/autoresearch_measured.json"
+    },
+    "overnight": {
+      "mode": "amk autoresearch small --gpu rtx5090 --minutes M --device cuda --overnight",
+      "features": ["no plateau-stop", "basin-hopping random restarts (global best preserved)", "resumable + crash-proof", "bounded GPU memory", "wake-up report workspace/amk_overnight_report.{json,md}", "flywheel compounds across nights"],
+      "headline_speedup": "TO FINALIZE from the completed 2h campaign (workspace/overnight_small_state.json)"
+    }
+  },
+  "honest_scope": "Every speedup here is vs AMK's OWN default schedule, measured and correctness-gated. It is NOT a claim of beating cuBLAS/vLLM: at batch-1 AMK is behind those (it carries the megakernel's DAG-dispatch + cross-SM counter-sync a single library GEMV does not). The self-improvement loop recovers headroom WITHIN the megakernel design; closing the gap to cuBLAS needs new Layer-1 micro-kernels (tensor-core/DP4A GEMV), which the same loop will then find and keep.",
+  "reproduce": [
+    "agent/manual: amk_cli.py eval small --gpu rtx5090 --config cfg.json --device cuda  (+ amk_orchestrate record)",
+    "headless: amk_cli.py autoresearch small --gpu rtx5090 --minutes 120 --device cuda --overnight",
+    "cold-vs-warm demo: paper/exp_autoresearch_measured.py"
+  ],
+  "tests": "77 passed"
+}

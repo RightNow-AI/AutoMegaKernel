@@ -1,0 +1,954 @@
+{
+  "experiment": "E2 validator soundness stress",
+  "claim": "validate() rejects every unsafe schedule before launch with zero false-accepts",
+  "abi_caps": {
+    "max_inputs": 8,
+    "max_outputs": 4,
+    "max_waits": 8,
+    "max_rank": 4
+  },
+  "oracle_race_seeds": 96,
+  "population": {
+    "total": 7160,
+    "valid": 360,
+    "mutant": 2800,
+    "random": 4000,
+    "n_safe_by_oracle": 1069,
+    "n_unsafe_by_oracle": 6091
+  },
+  "confusion_matrix": {
+    "accept_safe_TN": 377,
+    "accept_unsafe_FALSE_ACCEPT": 0,
+    "reject_safe_false_reject": 692,
+    "reject_unsafe_TP": 6091
+  },
+  "headline": {
+    "total_schedules": 7160,
+    "n_unsafe": 6091,
+    "false_accept_count": 0,
+    "false_accept_rate": 0.0,
+    "false_reject_count": 692,
+    "false_reject_rate": 0.64733395696913,
+    "validation_throughput_per_sec": 5152.500704892016,
+    "validate_wall_s": 1.389616500819102
+  },
+  "by_kind": {
+    "valid": {
+      "accept_safe": 360,
+      "accept_unsafe": 0,
+      "reject_safe": 0,
+      "reject_unsafe": 0
+    },
+    "mutant": {
+      "accept_safe": 17,
+      "accept_unsafe": 0,
+      "reject_safe": 692,
+      "reject_unsafe": 2091
+    },
+    "random": {
+      "accept_safe": 0,
+      "accept_unsafe": 0,
+      "reject_safe": 0,
+      "reject_unsafe": 4000
+    }
+  },
+  "false_reject_by_subclass": {
+    "mutant/cycle": 8,
+    "mutant/partial_shared": 350,
+    "mutant/drop_wait": 2,
+    "mutant/kv_before_append": 179,
+    "mutant/self_wait": 153
+  },
+  "false_reject_by_validator_reason": {
+    "cycle": 161,
+    "race": 531
+  },
+  "mutant_class_detection": {
+    "cycle": {
+      "total": 350,
+      "oracle_unsafe": 342,
+      "rejected": 342,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 8
+    },
+    "partial_shared": {
+      "total": 350,
+      "oracle_unsafe": 0,
+      "rejected": 0,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 350
+    },
+    "drop_wait": {
+      "total": 350,
+      "oracle_unsafe": 331,
+      "rejected": 331,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 19
+    },
+    "kv_before_append": {
+      "total": 350,
+      "oracle_unsafe": 171,
+      "rejected": 171,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 179
+    },
+    "self_wait": {
+      "total": 350,
+      "oracle_unsafe": 197,
+      "rejected": 197,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 153
+    },
+    "oob_counter": {
+      "total": 350,
+      "oracle_unsafe": 350,
+      "rejected": 350,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 0
+    },
+    "oob_buffer": {
+      "total": 350,
+      "oracle_unsafe": 350,
+      "rejected": 350,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 0
+    },
+    "capacity_overflow": {
+      "total": 350,
+      "oracle_unsafe": 350,
+      "rejected": 350,
+      "false_accept": 0,
+      "oracle_safe_no_effect": 0
+    }
+  },
+  "oracle_reason_distribution": {
+    "deadlock": 540,
+    "race": 502,
+    "bad_wait_counter_ref": 350,
+    "bad_input_ref": 350,
+    "arity": 4112,
+    "waits_over_cap": 350,
+    "output_arity": 3928
+  },
+  "reject_reason_distribution": {
+    "cycle": 4775,
+    "race": 1187,
+    "deadlock/unsatisfiable": 411,
+    "bad_ref": 350,
+    "capacity": 58,
+    "arity/param": 2
+  },
+  "false_accepts": [],
+  "false_rejects_sample": [
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 51 (L0.gate_proj[t0]) partial wait threshold 1 on shared counter 16 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "task 105 (L0.up_proj[t22]) partial wait threshold 1 on shared counter 15 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 51:L0.gate_proj[t0] -> 105:L0.up_proj[t22] -> 51:L0.gate_proj[t0]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=166, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 66 (L0.gate_proj[t15]) partial wait threshold 1 on shared counter 16 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "task 84 (L0.up_proj[t1]) partial wait threshold 1 on shared counter 15 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 84:L0.up_proj[t1] -> 66:L0.gate_proj[t15] -> 84:L0.up_proj[t1]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=166, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 70 (L0.gate_proj[t19]) partial wait threshold 1 on shared counter 16 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "task 102 (L0.up_proj[t19]) partial wait threshold 1 on shared counter 15 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 102:L0.up_proj[t19] -> 70:L0.gate_proj[t19] -> 102:L0.up_proj[t19]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=166, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 57 (L0.gate_proj[t6]) partial wait threshold 1 on shared counter 16 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "task 92 (L0.up_proj[t9]) partial wait threshold 1 on shared counter 15 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 92:L0.up_proj[t9] -> 57:L0.gate_proj[t6] -> 92:L0.up_proj[t9]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=166, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 37 (L0.gate_proj[t2]) partial wait threshold 1 on shared counter 16 (12 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 12)",
+        "task 57 (L0.up_proj[t10]) partial wait threshold 1 on shared counter 15 (12 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 12)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 57:L0.up_proj[t10] -> 37:L0.gate_proj[t2] -> 57:L0.up_proj[t10]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=86, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 34 (L0.gate_proj[t5]) partial wait threshold 1 on shared counter 16 (12 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 12)",
+        "task 43 (L0.up_proj[t2]) partial wait threshold 1 on shared counter 15 (12 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 12)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 43:L0.up_proj[t2] -> 34:L0.gate_proj[t5] -> 43:L0.up_proj[t2]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=75, buffers=37, counters=22, weight_MB=0.5)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 35 (L0.gate_proj[t4]) partial wait threshold 1 on shared counter 16 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)",
+        "task 56 (L0.up_proj[t9]) partial wait threshold 1 on shared counter 15 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 56:L0.up_proj[t9] -> 35:L0.gate_proj[t4] -> 56:L0.up_proj[t9]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=90, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "cycle",
+      "validator_errors": [
+        "task 30 (L0.gate_proj[t7]) partial wait threshold 1 on shared counter 16 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)",
+        "task 36 (L0.up_proj[t5]) partial wait threshold 1 on shared counter 15 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)",
+        "producer\u2192consumer graph has a CYCLE \u2014 structural deadlock. cycle: 36:L0.up_proj[t5] -> 30:L0.gate_proj[t7] -> 36:L0.up_proj[t5]"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=62, buffers=37, counters=22, weight_MB=0.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 123 (L0.swiglu) partial wait threshold 28 on shared counter 15 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=298, buffers=65, counters=41, weight_MB=1.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 23 (L0.swiglu) partial wait threshold 2 on shared counter 16 (3 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 3)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=32, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 63 (L0.swiglu) partial wait threshold 14 on shared counter 16 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=90, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 33 (L0.swiglu) partial wait threshold 3 on shared counter 16 (6 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 6)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=46, buffers=37, counters=22, weight_MB=0.5)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 33 (L0.attn_residual) partial wait threshold 2 on shared counter 12 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=162, buffers=65, counters=41, weight_MB=1.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 63 (L0.swiglu) partial wait threshold 7 on shared counter 15 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=82, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 27 (L0.swiglu) partial wait threshold 3 on shared counter 15 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=64, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 25 (L0.swiglu) partial wait threshold 3 on shared counter 15 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=34, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 72 (L0.mlp_residual) partial wait threshold 7 on shared counter 18 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=82, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 44 (L1.swiglu) partial wait threshold 2 on shared counter 34 (3 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 3)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=50, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 14 (L0.rope_q.reshape) partial wait threshold 5 on shared counter 2 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=82, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 76 (L0.mlp_residual) partial wait threshold 2 on shared counter 18 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=110, buffers=37, counters=22, weight_MB=0.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 25 (L0.swiglu) partial wait threshold 2 on shared counter 16 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=38, buffers=37, counters=22, weight_MB=0.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 72 (L0.mlp_residual) partial wait threshold 3 on shared counter 18 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=82, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 33 (L0.attn_residual) partial wait threshold 2 on shared counter 12 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=262, buffers=93, counters=60, weight_MB=0.6)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 63 (L0.swiglu) partial wait threshold 5 on shared counter 16 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=82, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 25 (L0.swiglu) partial wait threshold 2 on shared counter 16 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=66, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 14 (L0.rope_q.reshape) partial wait threshold 5 on shared counter 2 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=90, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 132 (L2.mlp_residual) partial wait threshold 2 on shared counter 56 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=150, buffers=93, counters=60, weight_MB=0.6)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 45 (L0.attn_residual) partial wait threshold 6 on shared counter 12 (12 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 12)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=135, buffers=37, counters=22, weight_MB=0.5)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 25 (L0.swiglu) partial wait threshold 2 on shared counter 16 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=34, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 25 (L0.swiglu) partial wait threshold 2 on shared counter 16 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=66, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 39 (L0.swiglu) partial wait threshold 5 on shared counter 16 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=62, buffers=37, counters=22, weight_MB=0.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 175 (L2.v_append) partial wait threshold 3 on shared counter 42 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=262, buffers=93, counters=60, weight_MB=0.6)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 65 (L1.attn_residual) partial wait threshold 3 on shared counter 31 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=106, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 25 (L0.swiglu) partial wait threshold 2 on shared counter 15 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=32, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 37 (L0.swiglu) partial wait threshold 7 on shared counter 16 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=52, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 10 (L0.rope_q.reshape) partial wait threshold 3 on shared counter 2 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=62, buffers=37, counters=22, weight_MB=0.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 28 (L0.rope_k.reshape) partial wait threshold 7 on shared counter 3 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=199, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 18 (L0.rope_q.reshape) partial wait threshold 2 on shared counter 2 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=110, buffers=37, counters=22, weight_MB=0.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 18 (L0.rope_q.reshape) partial wait threshold 4 on shared counter 2 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=262, buffers=93, counters=60, weight_MB=0.6)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 18 (L0.rope_q.reshape) partial wait threshold 7 on shared counter 2 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=86, buffers=37, counters=22, weight_MB=0.2)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 27 (L0.swiglu) partial wait threshold 3 on shared counter 16 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=64, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 197 (L1.attn_residual) partial wait threshold 14 on shared counter 31 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=298, buffers=65, counters=41, weight_MB=1.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 25 (L0.swiglu) partial wait threshold 3 on shared counter 16 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=38, buffers=37, counters=22, weight_MB=0.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 53 (L1.swiglu) partial wait threshold 3 on shared counter 34 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=66, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 143 (L1.swiglu) partial wait threshold 7 on shared counter 35 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=186, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 44 (L0.mlp_residual) partial wait threshold 2 on shared counter 18 (4 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 4)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=106, buffers=65, counters=41, weight_MB=0.4)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 263 (L1.swiglu) partial wait threshold 8 on shared counter 34 (32 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 32)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=298, buffers=65, counters=41, weight_MB=1.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 63 (L0.swiglu) partial wait threshold 4 on shared counter 16 (16 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 16)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=90, buffers=37, counters=22, weight_MB=0.8)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 18 (L0.rope_q.reshape) partial wait threshold 7 on shared counter 2 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=162, buffers=65, counters=41, weight_MB=1.3)"
+    },
+    {
+      "kind": "mutant",
+      "subclass": "partial_shared",
+      "validator_errors": [
+        "task 179 (L1.v_append) partial wait threshold 6 on shared counter 23 (8 producers) \u2014 ambiguous which-producer RACE; a shared counter must be an all-join (threshold == 8)"
+      ],
+      "summary": "MegakernelProgram(model=models.toy.ToyLlama, gpu=rtx5090, tasks=298, buffers=65, counters=41, weight_MB=1.3)"
+    }
+  ],
+  "external_anchor": {
+    "n_checks": 24,
+    "n_accepted_run": 24,
+    "n_matches_eager": 24,
+    "all_match": true,
+    "details": [
+      {
+        "shape": [
+          3,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 16,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 256,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          4,
+          4,
+          16,
+          64,
+          128,
+          64
+        ],
+        "n_tile": 128,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          3,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 32,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          4,
+          2,
+          24,
+          96,
+          192,
+          200
+        ],
+        "n_tile": 256,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 32,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          4,
+          2,
+          24,
+          96,
+          192,
+          200
+        ],
+        "n_tile": 8,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 256,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          2,
+          1,
+          32,
+          64,
+          96,
+          128
+        ],
+        "n_tile": 128,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          8,
+          4,
+          16,
+          128,
+          256,
+          128
+        ],
+        "n_tile": 8,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          8,
+          4,
+          16,
+          128,
+          256,
+          128
+        ],
+        "n_tile": 64,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          2,
+          1,
+          32,
+          64,
+          96,
+          128
+        ],
+        "n_tile": 32,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          8,
+          2,
+          16,
+          128,
+          256,
+          256
+        ],
+        "n_tile": 32,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          8,
+          2,
+          16,
+          128,
+          256,
+          256
+        ],
+        "n_tile": 64,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          8,
+          2,
+          16,
+          128,
+          256,
+          256
+        ],
+        "n_tile": 128,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          8,
+          4,
+          16,
+          128,
+          256,
+          128
+        ],
+        "n_tile": 16,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 256,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          1,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 32,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          2,
+          2,
+          32,
+          64,
+          160,
+          100
+        ],
+        "n_tile": 256,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          2,
+          2,
+          32,
+          64,
+          160,
+          100
+        ],
+        "n_tile": 8,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          2,
+          2,
+          32,
+          64,
+          160,
+          100
+        ],
+        "n_tile": 16,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          3,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 32,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          4,
+          2,
+          16,
+          64,
+          128,
+          256
+        ],
+        "n_tile": 32,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      },
+      {
+        "shape": [
+          2,
+          2,
+          2,
+          32,
+          64,
+          160,
+          100
+        ],
+        "n_tile": 256,
+        "accepted": true,
+        "vm": "ran",
+        "max_abs_err": 0.0,
+        "matches_eager": true
+      }
+    ]
+  },
+  "caveat": "validate() and simulate_counters/simulate_adversarial are all AMK components, so the deadlock/race halves of the oracle are not fully independent of the system under test. The structural half is independent, and the non-circular anchor is that every accepted real lowering runs in the ReferenceVM and equals eager PyTorch.",
+  "build_wall_s": 224.09623765945435
+}

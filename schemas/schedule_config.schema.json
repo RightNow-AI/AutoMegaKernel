@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rightnowai.co/amk/schemas/schedule_config.schema.json",
+  "title": "AMK ScheduleConfig",
+  "description": "THE LOOP-2 EDIT SURFACE. The structured object a coding agent proposes; the frozen AMK VM deterministically lowers it into a runnable, validated megakernel. The agent NEVER writes kernel code or touches Task.sm directly -- it only chooses a point in this space, and schedule.ir.validate() turns any unsafe point into a clean REJECTED rather than a hung GPU. This schema mirrors schedule.ir.ScheduleConfig (the dataclass is the source of truth; this JSON Schema documents the editable surface, types, and ranges for an external agent). Unknown extra keys are dropped by MegakernelProgram.from_dict for additive compatibility.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tiling": {
+      "type": "object",
+      "description": "Tile sizes per op archetype. Only 'gemv'->'N_tile' is consumed by the current frozen lowerer (the GEMV output-column tile width); 'attention'->'kv_block' is reserved/searchable and recorded but not yet lowered. Larger N_tile = fewer, wider tiles (less sync, more registers); smaller = more parallelism. The lowerer clamps N_tile to [1, N] and widens it if a projection would exceed 64 tiles.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "integer" }
+      },
+      "properties": {
+        "gemv": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "N_tile": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192,
+              "description": "GEMV output-column tile width. Typical search choices: 64, 128, 256, 512. Default 256.",
+              "examples": [64, 128, 256, 512]
+            }
+          }
+        },
+        "attention": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kv_block": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192,
+              "description": "KV window block size for attention tiling. Reserved/searchable; recorded in the schedule but not yet consumed by the frozen lowerer (whole-window attention). Typical: 64, 128, 256. Default 128.",
+              "examples": [64, 128, 256]
+            }
+          }
+        }
+      }
+    },
+    "fusion_grouping": {
+      "type": "array",
+      "description": "Lists of op-name groups to fuse into a single resident task group. Each inner list is one fused group (e.g. ['gate','up'] to co-resident the two MLP up-projections, or ['gate','up','silu'] to also fuse the SwiGLU activation). [] = no fusion (the default). Recorded on the schedule; the frozen lowerer treats fusion as a hint and never lets it create an invalid (deadlocking/racing) program.",
+      "items": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "examples": [[], [["gate", "up"]], [["gate", "up", "silu"]], [["rmsnorm", "gemv"]]]
+    },
+    "sm_assignment": {
+      "description": "SM assignment policy: 'round_robin' or 'load_balance' (string policies the lowerer/loader resolve into each Task.sm over the global topological order), OR an explicit {task_id: sm} map for full manual control. INPUT only -- the agent never edits Task.sm; the frozen lowerer/loader resolves this. An explicit map that violates per-SM serial-queue DAG ordering is REJECTED by validate().",
+      "oneOf": [
+        { "type": "string", "enum": ["round_robin", "load_balance"] },
+        {
+          "type": "object",
+          "description": "Explicit {task_id (as string): sm_index} map.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      ],
+      "default": "load_balance"
+    },
+    "pipelining_depth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8,
+      "description": "Software-pipelining depth: how many instructions ahead to prefetch weights, hiding the inter-op HBM bubble (the biggest megakernel win). 0 = no prefetch. Typical search choices: 0, 1, 2, 3, 4. Default 2.",
+      "default": 2,
+      "examples": [0, 1, 2, 3, 4]
+    },
+    "page_allocation": {
+      "type": "string",
+      "enum": ["linear", "graph_color", "none"],
+      "description": "Activation page-allocation policy. 'graph_color' (default) reuses one physical page across non-overlapping activation live ranges (lowest scratch footprint); 'linear' gives every activation its own page (simplest, more scratch); 'none' disables the allocator. Page reuse with overlapping live ranges is a clobber race and is REJECTED by validate().",
+      "default": "graph_color"
+    },
+    "threads_per_block": {
+      "type": "integer",
+      "minimum": 32,
+      "maximum": 1024,
+      "description": "Block size for the persistent VM kernel. Must be a multiple of the warp size (32). Typical search choices: 128, 256, 512. The loader proves occupancy (max co-resident blocks > 0) against the target before launch; a config that yields zero occupancy fails cleanly at load.",
+      "default": 256,
+      "multipleOf": 32,
+      "examples": [128, 256, 512]
+    },
+    "smem_bytes_per_block": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Dynamic shared-memory opt-in per block, in bytes. MUST be <= the target's smem_bytes_per_block_optin (e.g. 101376 on rtx5090). 0 = no dynamic SMEM. The loader REJECTS a value above the target opt-in cap before launch. Typical: 0, 16384, 49152.",
+      "default": 0,
+      "examples": [0, 16384, 49152]
+    },
+    "kernel_knobs": {
+      "type": "object",
+      "description": "Optional GEMV-kernel build knobs threaded to MegakernelVM(knobs=...) when the program is realized on hardware. A config WITHOUT kernel_knobs is byte-identical to the production VM build (the incumbent). These move MEASURED latency (device=cuda); the analytic/CPU 'predicted' path does not model them. Unknown sub-keys are dropped and missing ones filled with the production default. Not required.",
+      "additionalProperties": false,
+      "properties": {
+        "cols_per_warp": {
+          "type": "integer",
+          "enum": [1, 2, 4],
+          "description": "Output columns one warp computes -- x-reuse / memory-level parallelism in GEMV. Default 1.",
+          "default": 1
+        },
+        "cpasync": {
+          "type": "integer",
+          "enum": [0, 1],
+          "description": "1 = cp.async double-buffered GEMV (latency-hiding); 0 = register/coalesced path. Default 1.",
+          "default": 1
+        },
+        "cpa_stages": {
+          "type": "integer",
+          "enum": [2, 3, 4],
+          "description": "cp.async ring depth -- deeper pipeline hides more HBM latency (must fit SMEM). Default 4.",
+          "default": 4
+        },
+        "cpa_cols": {
+          "type": "integer",
+          "enum": [2, 4],
+          "description": "Columns one warp streams at once under cp.async. Default 2.",
+          "default": 2
+        }
+      }
+    }
+  },
+  "required": [
+    "tiling",
+    "fusion_grouping",
+    "sm_assignment",
+    "pipelining_depth",
+    "page_allocation",
+    "threads_per_block",
+    "smem_bytes_per_block"
+  ]
+}

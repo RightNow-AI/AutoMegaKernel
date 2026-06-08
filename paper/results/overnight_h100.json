@@ -1,0 +1,87 @@
+{
+  "tag": "h100",
+  "status": "running",
+  "sizes_searched": [
+    4,
+    8,
+    16
+  ],
+  "results_by_size": [
+    {
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "cap": "sm_90",
+      "target": "h100",
+      "layers": 4,
+      "int8_floor_us": 113.7,
+      "configs_correct": 25,
+      "best_int8_config": {
+        "qc": 2,
+        "N_tile": 32,
+        "threads": 512,
+        "n": 3150,
+        "ratio_median": 0.2891,
+        "ratio_p10": 0.1997,
+        "ratio_p90": 0.2941,
+        "max_err": 0.0205
+      },
+      "int8_crosses_cublas": false,
+      "top5": [
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 3150,
+          "ratio_median": 0.2891,
+          "ratio_p10": 0.1997,
+          "ratio_p90": 0.2941,
+          "max_err": 0.0205
+        },
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 3150,
+          "ratio_median": 0.2868,
+          "ratio_p10": 0.2131,
+          "ratio_p90": 0.2913,
+          "max_err": 0.0205
+        },
+        {
+          "qc": 4,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 3000,
+          "ratio_median": 0.2812,
+          "ratio_p10": 0.1978,
+          "ratio_p90": 0.2856,
+          "max_err": 0.0205
+        },
+        {
+          "qc": 4,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 3000,
+          "ratio_median": 0.2796,
+          "ratio_p10": 0.2002,
+          "ratio_p90": 0.2833,
+          "max_err": 0.0205
+        },
+        {
+          "qc": 4,
+          "N_tile": 48,
+          "threads": 512,
+          "n": 3000,
+          "ratio_median": 0.2773,
+          "ratio_p10": 0.1892,
+          "ratio_p90": 0.2814,
+          "max_err": 0.0205
+        }
+      ],
+      "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+    }
+  ],
+  "ncu": null,
+  "started_unix": 1780790238.4023948,
+  "gpu": "NVIDIA H100 80GB HBM3",
+  "cap": "sm_90"
+}

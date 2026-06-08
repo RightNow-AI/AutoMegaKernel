@@ -1,0 +1,211 @@
+{
+  "gpu": "NVIDIA L4",
+  "target": "l4",
+  "name": "2.7B",
+  "points": [
+    {
+      "name": "2.7B",
+      "pos": 0,
+      "bits": 8,
+      "target": "l4",
+      "weight_MB_int8": 2505.1,
+      "kv_MB": 0.0,
+      "best": {
+        "qc": 1,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 120,
+        "rel_err": 0.017,
+        "ratio_median": 1.2607,
+        "ratio_p10": 1.1661,
+        "ratio_p90": 1.285
+      },
+      "all": [
+        {
+          "qc": 1,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.017,
+          "ratio_median": 1.2607,
+          "ratio_p10": 1.1661,
+          "ratio_p90": 1.285
+        },
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.017,
+          "ratio_median": 1.2268,
+          "ratio_p10": 1.0887,
+          "ratio_p90": 1.258
+        },
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.017,
+          "ratio_median": 1.2271,
+          "ratio_p10": 1.1627,
+          "ratio_p90": 1.2525
+        }
+      ],
+      "crosses": true
+    },
+    {
+      "name": "2.7B",
+      "pos": 128,
+      "bits": 8,
+      "target": "l4",
+      "weight_MB_int8": 2505.1,
+      "kv_MB": 10.5,
+      "best": {
+        "qc": 1,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 120,
+        "rel_err": 0.0145,
+        "ratio_median": 0.6452,
+        "ratio_p10": 0.6171,
+        "ratio_p90": 0.6476
+      },
+      "all": [
+        {
+          "qc": 1,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.0145,
+          "ratio_median": 0.6452,
+          "ratio_p10": 0.6171,
+          "ratio_p90": 0.6476
+        },
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.0145,
+          "ratio_median": 0.6301,
+          "ratio_p10": 0.6142,
+          "ratio_p90": 0.6335
+        },
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.0145,
+          "ratio_median": 0.6384,
+          "ratio_p10": 0.6206,
+          "ratio_p90": 0.6428
+        }
+      ],
+      "crosses": false
+    },
+    {
+      "name": "2.7B",
+      "pos": 512,
+      "bits": 8,
+      "target": "l4",
+      "weight_MB_int8": 2505.1,
+      "kv_MB": 41.9,
+      "best": {
+        "qc": 1,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 120,
+        "rel_err": 0.014,
+        "ratio_median": 0.2747,
+        "ratio_p10": 0.2673,
+        "ratio_p90": 0.2757
+      },
+      "all": [
+        {
+          "qc": 1,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.014,
+          "ratio_median": 0.2747,
+          "ratio_p10": 0.2673,
+          "ratio_p90": 0.2757
+        },
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.014,
+          "ratio_median": 0.2734,
+          "ratio_p10": 0.2692,
+          "ratio_p90": 0.2739
+        },
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.014,
+          "ratio_median": 0.2724,
+          "ratio_p10": 0.2681,
+          "ratio_p90": 0.2731
+        }
+      ],
+      "crosses": false
+    },
+    {
+      "name": "2.7B",
+      "pos": 2048,
+      "bits": 8,
+      "target": "l4",
+      "weight_MB_int8": 2505.1,
+      "kv_MB": 167.8,
+      "best": {
+        "qc": 1,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 120,
+        "rel_err": 0.0146,
+        "ratio_median": 0.1023,
+        "ratio_p10": 0.102,
+        "ratio_p90": 0.1028
+      },
+      "all": [
+        {
+          "qc": 1,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.0146,
+          "ratio_median": 0.1023,
+          "ratio_p10": 0.102,
+          "ratio_p90": 0.1028
+        },
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.0146,
+          "ratio_median": 0.1021,
+          "ratio_p10": 0.1014,
+          "ratio_p90": 0.1027
+        },
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 120,
+          "rel_err": 0.0146,
+          "ratio_median": 0.1019,
+          "ratio_p10": 0.1001,
+          "ratio_p90": 0.1024
+        }
+      ],
+      "crosses": false
+    }
+  ]
+}

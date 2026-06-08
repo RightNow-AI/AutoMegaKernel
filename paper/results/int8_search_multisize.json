@@ -1,0 +1,168 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "goal": "AMK-generated int8 weight-only megakernel OUTPERFORM CUDA-graphed cuBLAS bf16 at batch-1 (real, correctness-gated, across model sizes)",
+  "method": "per size: search int8 GEMV knobs (qc/N_tile/threads), kernel-only single-launch vm.relaunch vs cuBLAS g.replay, same 1-token decode, per-sample paired-interleaved (ratio=cuBLAS/AMK), accumulate samples; crossing iff best p10>1.0. int8 = W8A16 near-lossless (argmax-exact, max_err reported) vs cuBLAS bf16 \u2014 precision stated.",
+  "results_by_size": [
+    {
+      "layers": 4,
+      "weight_MB_bf16": 622.9,
+      "int8_floor_us": 425.0,
+      "bf16_vs_cublas_ratio_median": 0.7639,
+      "passes": 224,
+      "configs_correct": 30,
+      "best_int8_config": {
+        "qc": 2,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 26880,
+        "ratio_median": 1.1931,
+        "ratio_p10": 1.0422,
+        "ratio_p90": 1.244,
+        "max_err": 0.0189
+      },
+      "int8_crosses_cublas": true,
+      "top3": [
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 26880,
+          "ratio_median": 1.1931,
+          "ratio_p10": 1.0422,
+          "ratio_p90": 1.244,
+          "max_err": 0.0189
+        },
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 26880,
+          "ratio_median": 1.1692,
+          "ratio_p10": 1.0233,
+          "ratio_p90": 1.2213,
+          "max_err": 0.0189
+        },
+        {
+          "qc": 4,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 26880,
+          "ratio_median": 1.0821,
+          "ratio_p10": 0.9513,
+          "ratio_p90": 1.1291,
+          "max_err": 0.0189
+        }
+      ]
+    },
+    {
+      "layers": 8,
+      "weight_MB_bf16": 983.6,
+      "int8_floor_us": 629.5,
+      "bf16_vs_cublas_ratio_median": 0.8738,
+      "passes": 131,
+      "configs_correct": 30,
+      "best_int8_config": {
+        "qc": 2,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 15720,
+        "ratio_median": 1.2279,
+        "ratio_p10": 1.1954,
+        "ratio_p90": 1.2555,
+        "max_err": 0.0259
+      },
+      "int8_crosses_cublas": true,
+      "top3": [
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 15720,
+          "ratio_median": 1.2279,
+          "ratio_p10": 1.1954,
+          "ratio_p90": 1.2555,
+          "max_err": 0.0259
+        },
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 15720,
+          "ratio_median": 1.2064,
+          "ratio_p10": 1.17,
+          "ratio_p90": 1.2321,
+          "max_err": 0.0259
+        },
+        {
+          "qc": 4,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 15720,
+          "ratio_median": 1.1133,
+          "ratio_p10": 1.0785,
+          "ratio_p90": 1.1325,
+          "max_err": 0.0259
+        }
+      ]
+    },
+    {
+      "layers": 16,
+      "weight_MB_bf16": 1705.1,
+      "int8_floor_us": 1038.5,
+      "bf16_vs_cublas_ratio_median": 0.8795,
+      "passes": 3,
+      "configs_correct": 30,
+      "best_int8_config": {
+        "qc": 2,
+        "N_tile": 16,
+        "threads": 512,
+        "n": 360,
+        "ratio_median": 1.2054,
+        "ratio_p10": 1.1474,
+        "ratio_p90": 1.2694,
+        "max_err": 0.0352
+      },
+      "int8_crosses_cublas": true,
+      "top3": [
+        {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 360,
+          "ratio_median": 1.2054,
+          "ratio_p10": 1.1474,
+          "ratio_p90": 1.2694,
+          "max_err": 0.0352
+        },
+        {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 360,
+          "ratio_median": 1.1943,
+          "ratio_p10": 1.1414,
+          "ratio_p90": 1.2328,
+          "max_err": 0.0352
+        },
+        {
+          "qc": 4,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 360,
+          "ratio_median": 1.0821,
+          "ratio_p10": 0.9774,
+          "ratio_p90": 1.1046,
+          "max_err": 0.0352
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "sizes_where_int8_beats_cublas": [
+      4,
+      8,
+      16
+    ],
+    "headline": "AMK int8 megakernel beats CUDA-graphed cuBLAS bf16 by 1.23x (p10 1.20) at batch-1 on a 8L model, near-lossless (max_err 0.0259), config qc=2/N_tile=16/threads=512"
+  }
+}

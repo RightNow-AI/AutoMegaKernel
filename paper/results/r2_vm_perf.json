@@ -1,0 +1,145 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "model": "small_4L_h2048_i5632_v32000",
+  "group": 128,
+  "iters": 100,
+  "warmup": 25,
+  "hbm_spec_gbs": 896.0,
+  "hbm_measured_gbs": 731.0,
+  "goal1_decode": [
+    {
+      "name": "bf16",
+      "kernel_us": 1760.8959674835205,
+      "token_us": 1997.0879554748535,
+      "weight_bytes": 622891008,
+      "roof_spec_us": 695.1908571428572,
+      "roof_meas_us": 852.1080820793434,
+      "achieved_gbs": 353.73526858044175,
+      "pct_roof_spec": 39.479382654067166,
+      "pct_roof_meas": 48.3905976170235,
+      "max_err_vs_ref": 0.015625,
+      "grid": 82,
+      "kspeedup_vs_bf16": 1.0,
+      "tspeedup_vs_bf16": 1.0
+    },
+    {
+      "name": "int8",
+      "kernel_us": 1589.4720554351807,
+      "token_us": 1839.136004447937,
+      "weight_bytes": 380841984,
+      "roof_spec_us": 425.0468571428571,
+      "roof_meas_us": 520.9876662106702,
+      "achieved_gbs": 239.60281824251985,
+      "pct_roof_spec": 26.741385964566945,
+      "pct_roof_meas": 32.77740331635018,
+      "max_err_vs_ref": 0.001953125,
+      "grid": 82,
+      "kspeedup_vs_bf16": 1.1078495916063185,
+      "tspeedup_vs_bf16": 1.0858837794730303
+    },
+    {
+      "name": "int4",
+      "kernel_us": 1539.039969444275,
+      "token_us": 1750.7200241088867,
+      "weight_bytes": 257896448,
+      "roof_spec_us": 287.83085714285716,
+      "roof_meas_us": 352.79951846785224,
+      "achieved_gbs": 167.56968832532834,
+      "pct_roof_spec": 18.701974143451825,
+      "pct_roof_meas": 22.923349976105108,
+      "max_err_vs_ref": 0.001953125,
+      "grid": 82,
+      "kspeedup_vs_bf16": 1.1441522003612126,
+      "tspeedup_vs_bf16": 1.1407237753457282
+    }
+  ],
+  "goal2_occupancy": {
+    "real_max_k": 0,
+    "smem_fit_k": 0,
+    "configs": [
+      {
+        "config": "default",
+        "knobs": null,
+        "op_noinline": false,
+        "num_regs": 104,
+        "static_smem_bytes": 35344,
+        "blocks_per_sm": 2,
+        "grid": 82,
+        "kernel_us": 1878.3999681472778,
+        "achieved_gbs": 331.6072287918403,
+        "max_err_vs_ref": 0.015625,
+        "correct": true
+      },
+      {
+        "config": "noinline",
+        "knobs": null,
+        "op_noinline": true,
+        "num_regs": 117,
+        "static_smem_bytes": 35344,
+        "blocks_per_sm": 2,
+        "grid": 82,
+        "kernel_us": 1811.3600015640259,
+        "achieved_gbs": 343.8802929633879,
+        "max_err_vs_ref": 0.015625,
+        "correct": true
+      },
+      {
+        "config": "smem_fit+lb3",
+        "knobs": {
+          "gemv_max_k": 0,
+          "lb_maxthreads": 256,
+          "lb_minblocks": 3
+        },
+        "op_noinline": false,
+        "num_regs": 80,
+        "static_smem_bytes": 35344,
+        "blocks_per_sm": 2,
+        "grid": 82,
+        "kernel_us": 1958.6880207061768,
+        "achieved_gbs": 318.01440628376616,
+        "max_err_vs_ref": 0.015625,
+        "correct": true
+      },
+      {
+        "config": "smem_fit+lb4",
+        "knobs": {
+          "gemv_max_k": 0,
+          "lb_maxthreads": 256,
+          "lb_minblocks": 4
+        },
+        "op_noinline": false,
+        "num_regs": 64,
+        "static_smem_bytes": 35344,
+        "blocks_per_sm": 2,
+        "grid": 82,
+        "kernel_us": 2055.6159019470215,
+        "achieved_gbs": 303.0191619990949,
+        "max_err_vs_ref": 0.015625,
+        "correct": true
+      },
+      {
+        "config": "noinline+smem_fit+lb4",
+        "knobs": {
+          "gemv_max_k": 0,
+          "lb_maxthreads": 256,
+          "lb_minblocks": 4
+        },
+        "op_noinline": true,
+        "num_regs": 64,
+        "static_smem_bytes": 35344,
+        "blocks_per_sm": 2,
+        "grid": 82,
+        "kernel_us": 2562.432050704956,
+        "achieved_gbs": 243.08586361485573,
+        "max_err_vs_ref": 0.015625,
+        "correct": true
+      }
+    ]
+  },
+  "int8_kernel_speedup_vs_bf16": 1.1078495916063185,
+  "int4_kernel_speedup_vs_bf16": 1.1441522003612126,
+  "occupancy_default_blocks_per_sm": 2,
+  "occupancy_best_blocks_per_sm": 2,
+  "occupancy_raised": false,
+  "headline": "int8 (lossless) kernel-only 1.11x vs bf16, int4 1.14x; occupancy 2->2 blocks/SM (not raised), but decode GB/s ~flat (332->332)."
+}
