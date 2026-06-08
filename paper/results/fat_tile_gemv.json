@@ -1,0 +1,250 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "model": "small_4L_h2048_i5632_v32000",
+  "iters": 100,
+  "warmup": 25,
+  "rounds": 5,
+  "weight_bytes": 622891008,
+  "hbm_spec_gbs": 896.0,
+  "hbm_measured_gbs": 731.0,
+  "sweep": [
+    {
+      "label": "before_ntile128",
+      "tiling": {
+        "gemv": {
+          "N_tile": 128
+        }
+      },
+      "n_gemv_tiles": 640,
+      "kernel_us": 1669.2479848861694,
+      "token_us": 1856.8320274353027,
+      "kernel_gbs": 373.15666314401847,
+      "token_gbs": 335.4589961809043,
+      "pct_roof_meas_kernel": 51.04742313871662,
+      "pct_roof_meas_token": 45.89042355415928,
+      "pct_roof_spec_kernel": 41.646949011609216,
+      "dyn_smem_bytes": 55296,
+      "grid": 82,
+      "max_err_vs_ref": 0.015625,
+      "rounds_kernel_us": [
+        1616.3519620895386,
+        1642.3039436340332,
+        1669.2479848861694,
+        1695.7759857177734,
+        1754.304051399231
+      ]
+    },
+    {
+      "label": "fat_ntile256",
+      "tiling": {
+        "gemv": {
+          "N_tile": 256
+        }
+      },
+      "n_gemv_tiles": 352,
+      "kernel_us": 1947.167992591858,
+      "token_us": 2161.1199378967285,
+      "kernel_gbs": 319.89587460857723,
+      "token_gbs": 288.2260244224194,
+      "pct_roof_meas_kernel": 43.761405555208924,
+      "pct_roof_meas_token": 39.42900470894931,
+      "pct_roof_spec_kernel": 35.70266457685014,
+      "dyn_smem_bytes": 55296,
+      "grid": 82,
+      "max_err_vs_ref": 0.015625,
+      "rounds_kernel_us": [
+        1910.4640483856201,
+        1928.223967552185,
+        1947.167992591858,
+        1956.3839435577393,
+        1990.399956703186
+      ]
+    },
+    {
+      "label": "ntile64",
+      "tiling": {
+        "gemv": {
+          "N_tile": 64
+        }
+      },
+      "n_gemv_tiles": 1024,
+      "kernel_us": 1425.4720211029053,
+      "token_us": 1624.1919994354248,
+      "kernel_gbs": 436.97175306047853,
+      "token_gbs": 383.5082356128581,
+      "pct_roof_meas_kernel": 59.777257600612664,
+      "pct_roof_meas_token": 52.4635069237836,
+      "pct_roof_spec_kernel": 48.769168868356985,
+      "dyn_smem_bytes": 55296,
+      "grid": 82,
+      "max_err_vs_ref": 0.015625,
+      "rounds_kernel_us": [
+        1404.0000438690186,
+        1404.8960208892822,
+        1425.4720211029053,
+        1441.248059272766,
+        1456.8639993667603
+      ]
+    },
+    {
+      "label": "ntile48",
+      "tiling": {
+        "gemv": {
+          "N_tile": 48
+        }
+      },
+      "n_gemv_tiles": 1180,
+      "kernel_us": 1390.336036682129,
+      "token_us": 1599.1679430007935,
+      "kernel_gbs": 448.0147184319951,
+      "token_gbs": 389.5094387842484,
+      "pct_roof_meas_kernel": 61.287923178111505,
+      "pct_roof_meas_token": 53.28446494996558,
+      "pct_roof_spec_kernel": 50.001642682142325,
+      "dyn_smem_bytes": 55296,
+      "grid": 82,
+      "max_err_vs_ref": 0.015625,
+      "rounds_kernel_us": [
+        1359.9679470062256,
+        1370.0799942016602,
+        1390.336036682129,
+        1400.5440473556519,
+        1410.3679656982422
+      ]
+    },
+    {
+      "label": "ntile16",
+      "tiling": {
+        "gemv": {
+          "N_tile": 16
+        }
+      },
+      "n_gemv_tiles": 1600,
+      "kernel_us": 1353.2480001449585,
+      "token_us": 1560.2240562438965,
+      "kernel_gbs": 460.2933149971598,
+      "token_gbs": 399.2317677113349,
+      "pct_roof_meas_kernel": 62.96762175063746,
+      "pct_roof_meas_token": 54.61446890715935,
+      "pct_roof_spec_kernel": 51.37202176307588,
+      "dyn_smem_bytes": 55296,
+      "grid": 82,
+      "max_err_vs_ref": 0.015625,
+      "rounds_kernel_us": [
+        1310.04798412323,
+        1319.5199966430664,
+        1353.2480001449585,
+        1365.407943725586,
+        1674.4639873504639
+      ]
+    },
+    {
+      "label": "after_default",
+      "tiling": {},
+      "n_gemv_tiles": 1472,
+      "kernel_us": 1358.944058418274,
+      "token_us": 1577.1839618682861,
+      "kernel_gbs": 458.3639805784252,
+      "token_gbs": 394.9387154952688,
+      "pct_roof_meas_kernel": 62.70369091360125,
+      "pct_roof_meas_token": 54.02718406228028,
+      "pct_roof_spec_kernel": 51.156694260984956,
+      "dyn_smem_bytes": 55296,
+      "grid": 82,
+      "max_err_vs_ref": 0.015625,
+      "rounds_kernel_us": [
+        1337.0239734649658,
+        1354.688048362732,
+        1358.944058418274,
+        1382.1120262145996,
+        1393.056035041809
+      ]
+    }
+  ],
+  "before": {
+    "label": "before_ntile128",
+    "tiling": {
+      "gemv": {
+        "N_tile": 128
+      }
+    },
+    "n_gemv_tiles": 640,
+    "kernel_us": 1669.2479848861694,
+    "token_us": 1856.8320274353027,
+    "kernel_gbs": 373.15666314401847,
+    "token_gbs": 335.4589961809043,
+    "pct_roof_meas_kernel": 51.04742313871662,
+    "pct_roof_meas_token": 45.89042355415928,
+    "pct_roof_spec_kernel": 41.646949011609216,
+    "dyn_smem_bytes": 55296,
+    "grid": 82,
+    "max_err_vs_ref": 0.015625,
+    "rounds_kernel_us": [
+      1616.3519620895386,
+      1642.3039436340332,
+      1669.2479848861694,
+      1695.7759857177734,
+      1754.304051399231
+    ]
+  },
+  "after": {
+    "label": "after_default",
+    "tiling": {},
+    "n_gemv_tiles": 1472,
+    "kernel_us": 1358.944058418274,
+    "token_us": 1577.1839618682861,
+    "kernel_gbs": 458.3639805784252,
+    "token_gbs": 394.9387154952688,
+    "pct_roof_meas_kernel": 62.70369091360125,
+    "pct_roof_meas_token": 54.02718406228028,
+    "pct_roof_spec_kernel": 51.156694260984956,
+    "dyn_smem_bytes": 55296,
+    "grid": 82,
+    "max_err_vs_ref": 0.015625,
+    "rounds_kernel_us": [
+      1337.0239734649658,
+      1354.688048362732,
+      1358.944058418274,
+      1382.1120262145996,
+      1393.056035041809
+    ]
+  },
+  "bench_best_width": {
+    "label": "ntile16",
+    "tiling": {
+      "gemv": {
+        "N_tile": 16
+      }
+    },
+    "n_gemv_tiles": 1600,
+    "kernel_us": 1353.2480001449585,
+    "token_us": 1560.2240562438965,
+    "kernel_gbs": 460.2933149971598,
+    "token_gbs": 399.2317677113349,
+    "pct_roof_meas_kernel": 62.96762175063746,
+    "pct_roof_meas_token": 54.61446890715935,
+    "pct_roof_spec_kernel": 51.37202176307588,
+    "dyn_smem_bytes": 55296,
+    "grid": 82,
+    "max_err_vs_ref": 0.015625,
+    "rounds_kernel_us": [
+      1310.04798412323,
+      1319.5199966430664,
+      1353.2480001449585,
+      1365.407943725586,
+      1674.4639873504639
+    ]
+  },
+  "cublas_ceiling": {
+    "bytes": 622891008,
+    "us": 942.6239728927612,
+    "gbs": 660.8053963325882,
+    "pct_roof_meas": 90.39745503865775
+  },
+  "kernel_speedup": 1.2283419428089408,
+  "token_speedup": 1.1773084639002755,
+  "gap_closed_pct": 29.622003368444716,
+  "measured_before_after": "373 GB/s, 51% meas -> 458 GB/s, 63% meas (1.23x); cuBLAS ceiling 90% meas",
+  "correctness_preserved": true,
+  "headline": "thin-tile decode GEMV: kernel-only 51% -> 63% of 731 GB/s MEASURED roofline (1.23x), tiles 640->1472; cuBLAS ceiling 90%; closed 30% of the gap; correctness preserved (max_err 1.6e-02 <= 2e-2 bf16)."
+}

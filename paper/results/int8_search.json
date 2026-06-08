@@ -1,0 +1,75 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "model": "small 4L bf16 (hidden2048/GQA/inter5632/vocab32000)",
+  "goal": "int8 weight-only megakernel OUTPERFORM CUDA-graphed cuBLAS bf16 at batch-1 (real, correctness-gated)",
+  "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved (ratio=cuBLAS/AMK, >1 => AMK faster); accumulating samples over the run; crossing declared ONLY if best p10 > 1.0",
+  "int8_floor_us": 425.0,
+  "elapsed_min": 1.5,
+  "passes": 5,
+  "configs_evaluated": 45,
+  "configs_correct": 45,
+  "CROSSES_CUBLAS": true,
+  "best_config": {
+    "qc": 2,
+    "N_tile": 16,
+    "threads": 512,
+    "n": 600,
+    "ratio_median": 1.1905,
+    "ratio_p10": 1.0471,
+    "ratio_p90": 1.2395,
+    "max_err": 0.0189
+  },
+  "top5": [
+    {
+      "qc": 2,
+      "N_tile": 16,
+      "threads": 512,
+      "n": 600,
+      "ratio_median": 1.1905,
+      "ratio_p10": 1.0471,
+      "ratio_p90": 1.2395,
+      "max_err": 0.0189
+    },
+    {
+      "qc": 2,
+      "N_tile": 32,
+      "threads": 512,
+      "n": 600,
+      "ratio_median": 1.18,
+      "ratio_p10": 1.0823,
+      "ratio_p90": 1.2321,
+      "max_err": 0.0189
+    },
+    {
+      "qc": 4,
+      "N_tile": 16,
+      "threads": 512,
+      "n": 600,
+      "ratio_median": 1.109,
+      "ratio_p10": 1.0283,
+      "ratio_p90": 1.1499,
+      "max_err": 0.0189
+    },
+    {
+      "qc": 4,
+      "N_tile": 48,
+      "threads": 512,
+      "n": 600,
+      "ratio_median": 1.0905,
+      "ratio_p10": 0.9966,
+      "ratio_p90": 1.1285,
+      "max_err": 0.0189
+    },
+    {
+      "qc": 4,
+      "N_tile": 32,
+      "threads": 512,
+      "n": 600,
+      "ratio_median": 1.0825,
+      "ratio_p10": 0.9947,
+      "ratio_p90": 1.1196,
+      "max_err": 0.0189
+    }
+  ],
+  "honesty": "int8 weight-only (W8A16), near-lossless (argmax-exact vs bf16 eager, max_err reported), vs cuBLAS bf16 \u2014 standard inference mode, precision stated. All CUDA-event medians, paired-interleaved (drift-robust). A crossing requires p10>1.0 (robustly faster across the whole run), not a lucky single reading."
+}

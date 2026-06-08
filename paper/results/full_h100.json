@@ -1,0 +1,176 @@
+{
+  "tag": "h100",
+  "status": "done",
+  "started_unix": 1780790587.4010613,
+  "steps": {
+    "correctness_retarget_perf": {
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "cap": "sm_90",
+      "torch": "2.11.0+cu128",
+      "checks": {
+        "retarget_decode_2L": {
+          "ran_on_gpu": true,
+          "max_err_vs_ref": 2.384185791015625e-07,
+          "max_err_vs_eager": 2.384185791015625e-07,
+          "pass": true
+        },
+        "scale_bench": {
+          "scale": "small",
+          "dtype": "bf16",
+          "tasks": 1522,
+          "weight_MB": 622.9,
+          "correct": true,
+          "max_err": 0.015625,
+          "median_latency_us": 3054.59,
+          "roofline_bound_us": 185.938,
+          "pct_of_bound": 1642.8,
+          "hbm_util_pct": 6.09,
+          "target_for_roofline": "h100"
+        }
+      }
+    },
+    "peak_bandwidth": {
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "cap": "sm_90",
+      "torch": "2.11.0+cu128",
+      "buffer_MB": 1073.7,
+      "warmup": 30,
+      "iters": 150,
+      "d2d_copy_gbs": 3023.7,
+      "d2d_copy_median_gbs": 3015.9,
+      "triad_gbs": 3089.3,
+      "triad_median_gbs": 3081.5,
+      "measured_peak_gbs": 3089.3,
+      "clock_state": "1980 MHz, 1980 MHz, 2619 MHz, 234.17 W, 32, 0x0000000000000000",
+      "note": "real sustained HBM bandwidth (CUDA-event timed D2D copy + STREAM triad); peak = best-boosted sample. The fair roofline denominator vs the spec figure."
+    },
+    "precision_vs_cublas": [
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 4,
+        "weight_MB": {
+          "bf16": 622.9,
+          "int8": 380.8
+        },
+        "floor_us": {
+          "bf16": 185.9,
+          "int8": 113.7
+        },
+        "quality": {
+          "int8_max_err": 0.0205,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0156
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.3048,
+            "p10": 0.2231,
+            "p90": 0.3495,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.285,
+            "p10": 0.1932,
+            "p90": 0.3133,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.2846,
+            "p10": 0.1873,
+            "p90": 0.3138,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      },
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 8,
+        "weight_MB": {
+          "bf16": 983.6,
+          "int8": 564.0
+        },
+        "floor_us": {
+          "bf16": 293.6,
+          "int8": 168.4
+        },
+        "quality": {
+          "int8_max_err": 0.0249,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0195
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.4687,
+            "p10": 0.2934,
+            "p90": 0.519,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.4157,
+            "p10": 0.2596,
+            "p90": 0.4469,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.3551,
+            "p10": 0.2188,
+            "p90": 0.4216,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      },
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 16,
+        "weight_MB": {
+          "bf16": 1705.1,
+          "int8": 930.5
+        },
+        "floor_us": {
+          "bf16": 509.0,
+          "int8": 277.7
+        },
+        "quality": {
+          "int8_max_err": 0.0312,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0244
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.5522,
+            "p10": 0.2569,
+            "p90": 0.5952,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.4593,
+            "p10": 0.2836,
+            "p90": 0.4839,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.4552,
+            "p10": 0.2413,
+            "p90": 0.4852,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      }
+    ]
+  },
+  "gpu": "NVIDIA H100 80GB HBM3",
+  "cap": "sm_90",
+  "elapsed_min": 2.4
+}

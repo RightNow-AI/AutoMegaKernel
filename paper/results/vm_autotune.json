@@ -1,0 +1,386 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "sm_arch": 120,
+  "model": "small_bf16_decode",
+  "config": {
+    "hidden": 2048,
+    "n_layers": 4,
+    "n_heads": 16,
+    "n_kv_heads": 4,
+    "head_dim": 128,
+    "intermediate": 5632,
+    "vocab": 32000
+  },
+  "weight_bytes": 622891008,
+  "roofline_us": 695.1908571428572,
+  "iters": 100,
+  "warmup": 25,
+  "gate": {
+    "rtol": 0.02,
+    "atol": 0.02
+  },
+  "baseline": {
+    "knobs": {
+      "cols_per_warp": 1,
+      "kunroll": 1,
+      "lb_maxthreads": 0,
+      "lb_minblocks": 0
+    },
+    "threads_per_block": 256,
+    "lat_us": 2310.59193611145,
+    "p10_us": 2104.383945465088,
+    "p90_us": 2610.4960441589355,
+    "achieved_gbs": 269.58070711883386,
+    "pct_roofline": 30.087132490941276,
+    "max_err": 0.015625,
+    "grid_dim": 82,
+    "occ_blocks_per_sm": 2,
+    "build_s": 3.5
+  },
+  "best": {
+    "knobs": {
+      "cols_per_warp": 4,
+      "kunroll": 1,
+      "lb_maxthreads": 256,
+      "lb_minblocks": 2
+    },
+    "threads_per_block": 256,
+    "lat_us": 1767.7760124206543,
+    "p10_us": 1662.4640226364136,
+    "p90_us": 2012.4800205230713,
+    "achieved_gbs": 352.3585587899577,
+    "pct_roofline": 39.32573200780778,
+    "max_err": 0.015625,
+    "grid_dim": 82,
+    "occ_blocks_per_sm": 2,
+    "build_s": 0.1
+  },
+  "speedup": 1.3070614828331708,
+  "occupancy_bound": false,
+  "all": [
+    {
+      "knobs": {
+        "cols_per_warp": 1,
+        "kunroll": 1,
+        "lb_maxthreads": 0,
+        "lb_minblocks": 0
+      },
+      "threads_per_block": 256,
+      "lat_us": 2310.59193611145,
+      "p10_us": 2104.383945465088,
+      "p90_us": 2610.4960441589355,
+      "achieved_gbs": 269.58070711883386,
+      "pct_roofline": 30.087132490941276,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 3.5
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 2,
+        "kunroll": 1,
+        "lb_maxthreads": 0,
+        "lb_minblocks": 0
+      },
+      "threads_per_block": 256,
+      "lat_us": 2307.231903076172,
+      "p10_us": 2159.327983856201,
+      "p90_us": 2502.624034881592,
+      "achieved_gbs": 269.9732988129697,
+      "pct_roofline": 30.130948528233226,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 1,
+        "lb_maxthreads": 0,
+        "lb_minblocks": 0
+      },
+      "threads_per_block": 256,
+      "lat_us": 1923.6479997634888,
+      "p10_us": 1786.303997039795,
+      "p90_us": 2155.2000045776367,
+      "achieved_gbs": 323.80716642368253,
+      "pct_roofline": 36.139192681214574,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 8,
+        "kunroll": 1,
+        "lb_maxthreads": 0,
+        "lb_minblocks": 0
+      },
+      "threads_per_block": 256,
+      "lat_us": 1989.4720315933228,
+      "p10_us": 1820.255994796753,
+      "p90_us": 2139.552116394043,
+      "achieved_gbs": 313.09362389032475,
+      "pct_roofline": 34.94348480918803,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.2
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 2,
+        "lb_maxthreads": 0,
+        "lb_minblocks": 0
+      },
+      "threads_per_block": 256,
+      "lat_us": 1898.0480432510376,
+      "p10_us": 1718.2400226593018,
+      "p90_us": 2120.192050933838,
+      "achieved_gbs": 328.17452130088986,
+      "pct_roofline": 36.626620680902896,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 8,
+        "kunroll": 2,
+        "lb_maxthreads": 0,
+        "lb_minblocks": 0
+      },
+      "threads_per_block": 256,
+      "lat_us": 1899.5519876480103,
+      "p10_us": 1705.6959867477417,
+      "p90_us": 2046.816110610962,
+      "achieved_gbs": 327.91469359638427,
+      "pct_roofline": 36.597622053167896,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 1,
+        "kunroll": 1,
+        "lb_maxthreads": 128,
+        "lb_minblocks": 2
+      },
+      "threads_per_block": 128,
+      "lat_us": 2828.8960456848145,
+      "p10_us": 2643.6800956726074,
+      "p90_us": 2994.623899459839,
+      "achieved_gbs": 220.188723071021,
+      "pct_roofline": 24.57463427131931,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 1,
+        "lb_maxthreads": 128,
+        "lb_minblocks": 2
+      },
+      "threads_per_block": 128,
+      "lat_us": 2247.7760314941406,
+      "p10_us": 2163.6478900909424,
+      "p90_us": 2557.5358867645264,
+      "achieved_gbs": 277.11435626704866,
+      "pct_roofline": 30.927941547661682,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.2
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 1,
+        "kunroll": 1,
+        "lb_maxthreads": 128,
+        "lb_minblocks": 3
+      },
+      "threads_per_block": 128,
+      "lat_us": 2766.079902648926,
+      "p10_us": 2587.2960090637207,
+      "p90_us": 3018.079996109009,
+      "achieved_gbs": 225.18908705547187,
+      "pct_roofline": 25.13271060886963,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 1,
+        "lb_maxthreads": 128,
+        "lb_minblocks": 3
+      },
+      "threads_per_block": 128,
+      "lat_us": 2409.0240001678467,
+      "p10_us": 2251.8720626831055,
+      "p90_us": 2580.8000564575195,
+      "achieved_gbs": 258.5657129014076,
+      "pct_roofline": 28.85778045774639,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 1,
+        "kunroll": 1,
+        "lb_maxthreads": 128,
+        "lb_minblocks": 4
+      },
+      "threads_per_block": 128,
+      "lat_us": 2816.096067428589,
+      "p10_us": 2568.4800148010254,
+      "p90_us": 3018.239974975586,
+      "achieved_gbs": 221.18954506007648,
+      "pct_roofline": 24.686333154026393,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 1,
+        "lb_maxthreads": 128,
+        "lb_minblocks": 4
+      },
+      "threads_per_block": 128,
+      "lat_us": 2289.184093475342,
+      "p10_us": 2182.624101638794,
+      "p90_us": 2588.128089904785,
+      "achieved_gbs": 272.10175440908006,
+      "pct_roofline": 30.368499376013403,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 1,
+        "kunroll": 1,
+        "lb_maxthreads": 256,
+        "lb_minblocks": 2
+      },
+      "threads_per_block": 256,
+      "lat_us": 2170.016050338745,
+      "p10_us": 1968.4799909591675,
+      "p90_us": 2368.8321113586426,
+      "achieved_gbs": 287.0444243501172,
+      "pct_roofline": 32.03620807478987,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 1,
+        "lb_maxthreads": 256,
+        "lb_minblocks": 2
+      },
+      "threads_per_block": 256,
+      "lat_us": 1767.7760124206543,
+      "p10_us": 1662.4640226364136,
+      "p90_us": 2012.4800205230713,
+      "achieved_gbs": 352.3585587899577,
+      "pct_roofline": 39.32573200780778,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 1,
+        "kunroll": 1,
+        "lb_maxthreads": 256,
+        "lb_minblocks": 3
+      },
+      "threads_per_block": 256,
+      "lat_us": 2349.5678901672363,
+      "p10_us": 2197.1518993377686,
+      "p90_us": 2674.9439239501953,
+      "achieved_gbs": 265.1087506799662,
+      "pct_roofline": 29.588030209817656,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 1,
+        "lb_maxthreads": 256,
+        "lb_minblocks": 3
+      },
+      "threads_per_block": 256,
+      "lat_us": 2408.7679386138916,
+      "p10_us": 2097.7280139923096,
+      "p90_us": 2671.7441082000732,
+      "achieved_gbs": 258.59319945882305,
+      "pct_roofline": 28.860848153886497,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 1,
+        "kunroll": 1,
+        "lb_maxthreads": 256,
+        "lb_minblocks": 4
+      },
+      "threads_per_block": 256,
+      "lat_us": 2629.6000480651855,
+      "p10_us": 2174.463987350464,
+      "p90_us": 2831.1359882354736,
+      "achieved_gbs": 236.87670999942083,
+      "pct_roofline": 26.437132812435358,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.1
+    },
+    {
+      "knobs": {
+        "cols_per_warp": 4,
+        "kunroll": 1,
+        "lb_maxthreads": 256,
+        "lb_minblocks": 4
+      },
+      "threads_per_block": 256,
+      "lat_us": 2492.608070373535,
+      "p10_us": 2055.583953857422,
+      "p90_us": 2757.6000690460205,
+      "achieved_gbs": 249.89528654886178,
+      "pct_roofline": 27.89009894518547,
+      "max_err": 0.015625,
+      "grid_dim": 82,
+      "occ_blocks_per_sm": 2,
+      "build_s": 0.2
+    }
+  ]
+}

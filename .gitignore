@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# AMK runtime artifacts (never committed, the flywheel corpus is exported deliberately)
+workspace/
+run.log
+*.log
+build.log
+*.so
+*.pyd
+*.dll
+*.ptx
+*.cubin
+.amk_cache/
+.amk_build/
+.amk_build_min/
+instructions/gen_flywheel.jsonl
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Secrets (NEVER commit, defense-in-depth for a public repo that documents Modal/HF token usage)
+.env
+.env.*
+!.env.example
+.modal.toml
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+*.credentials
+secrets.*
+
+# Machine-local Claude Code settings (portable exclusion, not dependent on a global gitignore)
+.claude/settings.local.json
+**/settings.local.json
+
+# Keep the flywheel directory but ignore its bulk; results.tsv IS tracked (git-friendly log)
+flywheel/*.parquet
+flywheel/raw/
+!results.tsv
+
+# arXiv paper TeX source + build artifacts go to arXiv separately. But the measured RESULT DATA
+# (paper/results/*.json) IS shipped: the README and docs cite it as the file-backing for every
+# reported number, so the evidence must be public and verifiable in the OSS repo.
+paper/*
+!paper/results/
+paper/results/*
+!paper/results/*.json
+
+# Local-only internal docs (not for public release, contains private paths/mission notes)
+AUTOMEGAKERNEL_CLAUDE_CODE_PROMPT.md
+
+# Modal datacenter experiment driver, paper RESULTS infrastructure ONLY, not product/repo code.
+# (Runs the A100/H100 benchmarks that feed the paper; kept out of the public OSS repo on purpose.)
+modal_app.py

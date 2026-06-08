@@ -1,0 +1,58 @@
+{
+  "model": "small(4L/2048h)",
+  "gpu": "rtx5090",
+  "device": "cuda",
+  "training_minutes": 10,
+  "method": "per-sample PAIRED interleaved CUDA-event timing (warmup 30, iters 300), correctness-gated, same model+GPU",
+  "amk_best_config": {
+    "tiling": {
+      "gemv": {
+        "N_tile": 16
+      },
+      "attention": {
+        "kv_block": 128
+      }
+    },
+    "fusion_grouping": [
+      [
+        "rmsnorm",
+        "gemv"
+      ]
+    ],
+    "sm_assignment": "load_balance",
+    "pipelining_depth": 0,
+    "page_allocation": "graph_color",
+    "threads_per_block": 512,
+    "smem_bytes_per_block": 16384,
+    "kernel_knobs": {
+      "cols_per_warp": 4,
+      "cpasync": 0,
+      "cpa_stages": 4,
+      "cpa_cols": 4
+    }
+  },
+  "amk_correct_vs_eager": true,
+  "amk_max_abs_err": 0.015625,
+  "latencies_us": {
+    "amk_after_10min": 1225.5,
+    "cublas_graphed_eager": 1082.6,
+    "eager_perop": 4442.3,
+    "amk_campaign_baseline": 1805.2
+  },
+  "verdicts": {
+    "amk_vs_cublas_graph_paired_median": 0.884,
+    "amk_vs_cublas_graph_paired_p10_p90": [
+      0.821,
+      0.927
+    ],
+    "amk_vs_eager_perop": 3.625,
+    "amk_self_improvement": 1.473
+  },
+  "headline": "After 10 min: AMK 1226us vs cuBLAS-graphed eager 1083us. Drift-robust PAIRED ratio (cuBLAS/AMK) median 0.88x (p10-p90 0.82-0.93); >1 => AMK faster. vs naive eager-perop 4442us => 3.6x faster.",
+  "vllm": {
+    "status": "not_run_locally",
+    "reason": "vLLM has no Windows wheels; not a local baseline.",
+    "paper_reference": "vLLM default (cudagraph) on H100 with SmolLM2-135M = 8.65 ms/tok; AMK there = 14.30 ms/tok (1.65x slower) \u2014 different model/GPU, see paper Table 8 / h100.json. Not comparable to this small-model run."
+  },
+  "honesty": "AMK's 10-min result is a correct, measured, drift-robust speedup over AMK's OWN baseline. cuBLAS-graphed eager is the strongest local baseline (library GEMMs + graph replay). The result below is the literal measurement, reported whichever way it falls."
+}

@@ -1,0 +1,35 @@
+name: ci
+
+# AMK's correctness core is GPU-free (the IR + deadlock/race validator + CPU reference VM +
+# lowering + HF import + eval + search + compile all run without a GPU). CI exercises that core
+# on every push; the CUDA megakernel tests auto-skip without a GPU (see conftest.py) and are
+# validated on real hardware (RTX 5090 locally; A100/H100 via Modal, see DATACENTER_RESULTS.md).
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  cpu-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Sync (CPU torch is fine for the core; no CUDA needed in CI)
+        # `dev` is a PEP 735 dependency-GROUP (installed by default on `uv sync`), NOT a project
+        # extra, `--extra dev` errors out. Pull the real extras explicitly; the dev group (pytest
+        # + ruff + HF importer + ninja + reporting) comes along automatically.
+        run: uv sync --extra models --extra analysis || uv sync
+      # pyproject pins torch to the cu128 index (GPU devs need it); that multi-GB CUDA wheel
+      # is useless and slow/fragile on this CPU-only runner. Override it with the CPU build so
+      # `uv run pytest` boots fast, the CUDA tests auto-skip anyway (conftest.py).
+      - name: Force CPU torch (CI has no GPU)
+        run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Lint
+        run: uv run ruff check .
+      - name: Run the GPU-free test suite
+        run: uv run pytest -q

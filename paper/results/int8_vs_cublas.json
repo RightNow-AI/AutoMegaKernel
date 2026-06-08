@@ -1,0 +1,44 @@
+{
+  "device": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "model": "small bf16 (hidden2048/4L/GQA inter5632/vocab32000)",
+  "comparison": "kernel-only single-launch: AMK vm.relaunch() vs cuBLAS CUDA-graph g.replay(); same 1-token decode; per-sample paired-interleaved; median of medians over rounds",
+  "warmup": 30,
+  "iters_per_round": 200,
+  "rounds": 7,
+  "weight_bytes": {
+    "bf16": 622891008,
+    "int8": 380841984,
+    "int8_fraction_of_bf16": 0.611
+  },
+  "roofline_floor_us": {
+    "bf16": 695.2,
+    "int8": 425.0
+  },
+  "latency_us_kernel_only": {
+    "amk_bf16": 1380.0,
+    "amk_int8": 1216.5,
+    "cublas_graph_bf16": 1114.4
+  },
+  "pct_of_own_floor": {
+    "amk_bf16": 50.4,
+    "amk_int8": 34.9
+  },
+  "int8_quality_vs_bf16_eager": {
+    "max_abs_logit_err": 0.0189,
+    "argmax_matches": true,
+    "note": "int8 weight-only is near-lossless (not bit-exact); paper shows 100% greedy-token agreement on SmolLM2-135M"
+  },
+  "verdicts_paired_median": {
+    "amk_int8_vs_cublas_bf16": 0.909,
+    "amk_int8_vs_cublas_bf16_range": [
+      0.887,
+      0.928
+    ],
+    "amk_bf16_vs_cublas_bf16": 0.816,
+    "amk_bf16_vs_cublas_bf16_range": [
+      0.808,
+      0.821
+    ]
+  },
+  "honesty": "Fair kernel-only single-launch comparison (both are one GPU launch doing the whole forward). int8 is weight-only (W8A16), near-lossless, compared to cuBLAS bf16 \u2014 a standard inference mode; precision difference stated explicitly. All latencies are CUDA-event medians, paired-interleaved (drift-robust)."
+}

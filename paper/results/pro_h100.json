@@ -1,0 +1,476 @@
+{
+  "tag": "h100",
+  "status": "done",
+  "started_unix": 1780790778.9445012,
+  "search_minutes_per_size": 15.0,
+  "steps": {
+    "correctness_retarget_perf": {
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "cap": "sm_90",
+      "torch": "2.11.0+cu128",
+      "checks": {
+        "retarget_decode_2L": {
+          "ran_on_gpu": true,
+          "max_err_vs_ref": 2.384185791015625e-07,
+          "max_err_vs_eager": 2.384185791015625e-07,
+          "pass": true
+        },
+        "scale_bench": {
+          "scale": "small",
+          "dtype": "bf16",
+          "tasks": 1522,
+          "weight_MB": 622.9,
+          "correct": true,
+          "max_err": 0.015625,
+          "median_latency_us": 2950.05,
+          "roofline_bound_us": 185.938,
+          "pct_of_bound": 1586.6,
+          "hbm_util_pct": 6.3,
+          "target_for_roofline": "h100"
+        }
+      }
+    },
+    "peak_bandwidth": {
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "cap": "sm_90",
+      "torch": "2.11.0+cu128",
+      "buffer_MB": 1073.7,
+      "warmup": 30,
+      "iters": 150,
+      "d2d_copy_gbs": 3010.4,
+      "d2d_copy_median_gbs": 3001.3,
+      "triad_gbs": 3049.9,
+      "triad_median_gbs": 3039.0,
+      "measured_peak_gbs": 3049.9,
+      "clock_state": "1980 MHz, 1980 MHz, 2619 MHz, 232.76 W, 36, 0x0000000000000000",
+      "note": "real sustained HBM bandwidth (CUDA-event timed D2D copy + STREAM triad); peak = best-boosted sample. The fair roofline denominator vs the spec figure."
+    },
+    "precision_vs_cublas": [
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 4,
+        "weight_MB": {
+          "bf16": 622.9,
+          "int8": 380.8
+        },
+        "floor_us": {
+          "bf16": 185.9,
+          "int8": 113.7
+        },
+        "quality": {
+          "int8_max_err": 0.0205,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0156
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.3057,
+            "p10": 0.1878,
+            "p90": 0.3097,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.2764,
+            "p10": 0.1624,
+            "p90": 0.2804,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.2507,
+            "p10": 0.1266,
+            "p90": 0.2703,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      },
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 8,
+        "weight_MB": {
+          "bf16": 983.6,
+          "int8": 564.0
+        },
+        "floor_us": {
+          "bf16": 293.6,
+          "int8": 168.4
+        },
+        "quality": {
+          "int8_max_err": 0.0249,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0195
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.4295,
+            "p10": 0.1576,
+            "p90": 0.4681,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.3359,
+            "p10": 0.1721,
+            "p90": 0.3486,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.3357,
+            "p10": 0.2357,
+            "p90": 0.3468,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      },
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 16,
+        "weight_MB": {
+          "bf16": 1705.1,
+          "int8": 930.5
+        },
+        "floor_us": {
+          "bf16": 509.0,
+          "int8": 277.7
+        },
+        "quality": {
+          "int8_max_err": 0.0312,
+          "int8_argmax_match": true,
+          "bf16_max_err": 0.0244
+        },
+        "ratio_vs_cublas_bf16": {
+          "amk_int8_best": {
+            "median": 0.6372,
+            "p10": 0.3749,
+            "p90": 0.654,
+            "n": 1000
+          },
+          "amk_int8_default": {
+            "median": 0.5299,
+            "p10": 0.2708,
+            "p90": 0.5432,
+            "n": 1000
+          },
+          "amk_bf16": {
+            "median": 0.5317,
+            "p10": 0.2726,
+            "p90": 0.5459,
+            "n": 1000
+          }
+        },
+        "int8_crosses_cublas": false,
+        "method": "kernel-only single-launch (vm.relaunch vs cuBLAS g.replay), same 1-token decode, per-sample paired-interleaved, 5 rounds x 200 iters; int8 W8A16 near-lossless vs cuBLAS bf16 (precision stated)"
+      }
+    ],
+    "int8_self_tune_search": [
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 4,
+        "int8_floor_us": 113.7,
+        "configs_correct": 25,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 6450,
+          "ratio_median": 0.2605,
+          "ratio_p10": 0.1717,
+          "ratio_p90": 0.2666,
+          "max_err": 0.0205
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 6450,
+            "ratio_median": 0.2605,
+            "ratio_p10": 0.1717,
+            "ratio_p90": 0.2666,
+            "max_err": 0.0205
+          },
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 6450,
+            "ratio_median": 0.2568,
+            "ratio_p10": 0.1621,
+            "ratio_p90": 0.2635,
+            "max_err": 0.0205
+          },
+          {
+            "qc": 4,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 6300,
+            "ratio_median": 0.2503,
+            "ratio_p10": 0.1577,
+            "ratio_p90": 0.259,
+            "max_err": 0.0205
+          },
+          {
+            "qc": 4,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 6300,
+            "ratio_median": 0.25,
+            "ratio_p10": 0.1501,
+            "ratio_p90": 0.2572,
+            "max_err": 0.0205
+          },
+          {
+            "qc": 2,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 6300,
+            "ratio_median": 0.2469,
+            "ratio_p10": 0.1449,
+            "ratio_p90": 0.2532,
+            "max_err": 0.0205
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      },
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 8,
+        "int8_floor_us": 168.4,
+        "configs_correct": 25,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 4650,
+          "ratio_median": 0.3926,
+          "ratio_p10": 0.2422,
+          "ratio_p90": 0.4024,
+          "max_err": 0.0249
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 4650,
+            "ratio_median": 0.3926,
+            "ratio_p10": 0.2422,
+            "ratio_p90": 0.4024,
+            "max_err": 0.0249
+          },
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 4650,
+            "ratio_median": 0.3909,
+            "ratio_p10": 0.1831,
+            "ratio_p90": 0.4041,
+            "max_err": 0.0249
+          },
+          {
+            "qc": 4,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 4650,
+            "ratio_median": 0.3772,
+            "ratio_p10": 0.2095,
+            "ratio_p90": 0.3857,
+            "max_err": 0.0249
+          },
+          {
+            "qc": 4,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 4650,
+            "ratio_median": 0.3749,
+            "ratio_p10": 0.21,
+            "ratio_p90": 0.3824,
+            "max_err": 0.0249
+          },
+          {
+            "qc": 4,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 4650,
+            "ratio_median": 0.3657,
+            "ratio_p10": 0.2412,
+            "ratio_p90": 0.3735,
+            "max_err": 0.0249
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      },
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 16,
+        "int8_floor_us": 277.7,
+        "configs_correct": 25,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 16,
+          "threads": 512,
+          "n": 3000,
+          "ratio_median": 0.5483,
+          "ratio_p10": 0.2596,
+          "ratio_p90": 0.5615,
+          "max_err": 0.0312
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 3000,
+            "ratio_median": 0.5483,
+            "ratio_p10": 0.2596,
+            "ratio_p90": 0.5615,
+            "max_err": 0.0312
+          },
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 3000,
+            "ratio_median": 0.5425,
+            "ratio_p10": 0.2487,
+            "ratio_p90": 0.5555,
+            "max_err": 0.0312
+          },
+          {
+            "qc": 4,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 3000,
+            "ratio_median": 0.5068,
+            "ratio_p10": 0.2402,
+            "ratio_p90": 0.52,
+            "max_err": 0.0312
+          },
+          {
+            "qc": 4,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 3000,
+            "ratio_median": 0.5055,
+            "ratio_p10": 0.2558,
+            "ratio_p90": 0.5177,
+            "max_err": 0.0312
+          },
+          {
+            "qc": 2,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 3000,
+            "ratio_median": 0.4788,
+            "ratio_p10": 0.2403,
+            "ratio_p90": 0.4909,
+            "max_err": 0.0312
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      },
+      {
+        "gpu": "NVIDIA H100 80GB HBM3",
+        "cap": "sm_90",
+        "target": "h100",
+        "layers": 24,
+        "int8_floor_us": 387.1,
+        "configs_correct": 25,
+        "best_int8_config": {
+          "qc": 2,
+          "N_tile": 32,
+          "threads": 512,
+          "n": 2250,
+          "ratio_median": 0.6236,
+          "ratio_p10": 0.3112,
+          "ratio_p90": 0.6392,
+          "max_err": 0.0352
+        },
+        "int8_crosses_cublas": false,
+        "top5": [
+          {
+            "qc": 2,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.6236,
+            "ratio_p10": 0.3112,
+            "ratio_p90": 0.6392,
+            "max_err": 0.0352
+          },
+          {
+            "qc": 2,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.6207,
+            "ratio_p10": 0.3256,
+            "ratio_p90": 0.6353,
+            "max_err": 0.0352
+          },
+          {
+            "qc": 4,
+            "N_tile": 32,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.5761,
+            "ratio_p10": 0.2743,
+            "ratio_p90": 0.5884,
+            "max_err": 0.0352
+          },
+          {
+            "qc": 4,
+            "N_tile": 16,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.5713,
+            "ratio_p10": 0.2962,
+            "ratio_p90": 0.583,
+            "max_err": 0.0352
+          },
+          {
+            "qc": 2,
+            "N_tile": 48,
+            "threads": 512,
+            "n": 2250,
+            "ratio_median": 0.5393,
+            "ratio_p10": 0.2986,
+            "ratio_p90": 0.5497,
+            "max_err": 0.0352
+          }
+        ],
+        "method": "SELF-TUNED ON THIS GPU: searched int8 GEMV knobs (qc/N_tile/threads), kernel-only vm.relaunch vs cuBLAS g.replay, 1-token decode, paired-interleaved, correctness-gated (argmax-exact vs bf16 eager); crossing iff best p10>1.0. int8=W8A16 near-lossless"
+      }
+    ],
+    "ncu_profile": {
+      "ncu": "/opt/nvidia/nsight-compute/2025.1.1/ncu",
+      "scale": "small",
+      "dtype": "bf16",
+      "rc": 9,
+      "dram_pct_of_peak": null,
+      "sm_pct_of_peak": null,
+      "raw_tail": "==WARNING== Note: Running with unmodified GPU clocks. If not controlled otherwise, profiling results may be inconsistent.\n==PROF== Connected to process 554 (/usr/local/bin/python3)\n\n==ERROR== An error was reported by the counter measurement library:\n==ERROR== Failed to initialize the profiler: LibraryNotLoaded. Check that a compatible driver library is loaded.\n==PROF== Trying to shutdown target application\n==ERROR== The application returned an error code (9).\n\n"
+    }
+  },
+  "gpu": "NVIDIA H100 80GB HBM3",
+  "cap": "sm_90",
+  "elapsed_min": 63.7
+}

@@ -1,0 +1,448 @@
+{
+  "experiment": "autoresearch_measured",
+  "model": "small(4L/2048h)",
+  "gpu": "rtx5090",
+  "device": "cuda",
+  "device_name": "NVIDIA GeForce RTX 5090 Laptop GPU",
+  "fitness": "measured-gpu (CUDA-event median, correctness-gated, interleaved keep/revert)",
+  "measurement": {
+    "warmup": 25,
+    "iters": 100,
+    "interleave_rounds": 2,
+    "keep_margin": 0.02
+  },
+  "iters_per_run": 12,
+  "search_grid": {
+    "kernel_knobs": {
+      "cols_per_warp": [
+        1,
+        2,
+        4
+      ],
+      "cpasync": [
+        0,
+        1
+      ],
+      "cpa_stages": [
+        3,
+        4
+      ],
+      "cpa_cols": [
+        2
+      ]
+    },
+    "n_tile": [
+      0,
+      16,
+      32,
+      64
+    ]
+  },
+  "corpus_points_after_cold": 3,
+  "cold": {
+    "best_us": 1261.152,
+    "default_start_us": 2168.3519,
+    "iters_to_best": 2,
+    "n_kept": 3,
+    "n_correct": 12,
+    "best_config": {
+      "tiling": {
+        "gemv": {
+          "N_tile": 32
+        },
+        "attention": {
+          "kv_block": 256
+        }
+      },
+      "fusion_grouping": [
+        [
+          "gate",
+          "up"
+        ]
+      ],
+      "sm_assignment": "load_balance",
+      "pipelining_depth": 0,
+      "page_allocation": "none",
+      "threads_per_block": 512,
+      "smem_bytes_per_block": 0,
+      "kernel_knobs": {
+        "cols_per_warp": 2,
+        "cpasync": 0,
+        "cpa_stages": 4,
+        "cpa_cols": 2
+      }
+    },
+    "incumbent_curve": [
+      2168.3519,
+      1485.3441,
+      1261.152,
+      1261.152,
+      1261.152,
+      1261.152,
+      1261.152,
+      1261.152,
+      1261.152,
+      1261.152,
+      1261.152,
+      1261.152
+    ],
+    "trajectory": [
+      {
+        "iter": 0,
+        "source": "default",
+        "valid": true,
+        "correct": true,
+        "latency_us": 2168.3519,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 311.907,
+        "kept": true,
+        "best_us": 2168.3519,
+        "schedule_id": "sch_1049380d44"
+      },
+      {
+        "iter": 1,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1485.3441,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 213.66,
+        "kept": true,
+        "best_us": 1485.3441,
+        "schedule_id": "sch_a8292d4419"
+      },
+      {
+        "iter": 2,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1261.152,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 181.411,
+        "kept": true,
+        "best_us": 1261.152,
+        "schedule_id": "sch_d5303e32cf"
+      },
+      {
+        "iter": 3,
+        "source": "mutate",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1347.2,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 193.789,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_d5303e32cf"
+      },
+      {
+        "iter": 4,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1506.848,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 216.753,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_c475b39330"
+      },
+      {
+        "iter": 5,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1535.584,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 220.887,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_7b562e3983"
+      },
+      {
+        "iter": 6,
+        "source": "mutate",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1380.448,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 198.571,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_630e6fc904"
+      },
+      {
+        "iter": 7,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1612.896,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 232.008,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_0413cc5ec4"
+      },
+      {
+        "iter": 8,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1648.4801,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 237.126,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_85e198b25c"
+      },
+      {
+        "iter": 9,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1490.528,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 214.406,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_fc0d57c911"
+      },
+      {
+        "iter": 10,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1449.088,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 208.445,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_56bbafb267"
+      },
+      {
+        "iter": 11,
+        "source": "mutate",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1387.936,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 199.648,
+        "kept": false,
+        "best_us": 1261.152,
+        "schedule_id": "sch_d5303e32cf"
+      }
+    ]
+  },
+  "warm": {
+    "best_us": 1532.928,
+    "iters_to_best": 0,
+    "n_kept": 1,
+    "n_correct": 12,
+    "warm_seeds": 3,
+    "ranker_trained": false,
+    "best_config": {
+      "tiling": {
+        "gemv": {
+          "N_tile": 32
+        },
+        "attention": {
+          "kv_block": 256
+        }
+      },
+      "fusion_grouping": [
+        [
+          "gate",
+          "up"
+        ]
+      ],
+      "sm_assignment": "load_balance",
+      "pipelining_depth": 0,
+      "page_allocation": "none",
+      "threads_per_block": 512,
+      "smem_bytes_per_block": 0,
+      "kernel_knobs": {
+        "cols_per_warp": 2,
+        "cpasync": 0,
+        "cpa_stages": 4,
+        "cpa_cols": 2
+      }
+    },
+    "incumbent_curve": [
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928,
+      1532.928
+    ],
+    "trajectory": [
+      {
+        "iter": 0,
+        "source": "warm_seed",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1532.928,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 220.505,
+        "kept": true,
+        "best_us": 1532.928,
+        "schedule_id": "sch_d5303e32cf"
+      },
+      {
+        "iter": 1,
+        "source": "warm_seed",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1515.552,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 218.005,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_a8292d4419"
+      },
+      {
+        "iter": 2,
+        "source": "warm_seed",
+        "valid": true,
+        "correct": true,
+        "latency_us": 2166.976,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 311.71,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_1049380d44"
+      },
+      {
+        "iter": 3,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1514.5921,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 217.867,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_a8292d4419"
+      },
+      {
+        "iter": 4,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1649.5039,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 237.274,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_b2d326efda"
+      },
+      {
+        "iter": 5,
+        "source": "mutate",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1443.392,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 207.625,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_bce05a39e4"
+      },
+      {
+        "iter": 6,
+        "source": "mutate",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1275.424,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 183.464,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_d5303e32cf"
+      },
+      {
+        "iter": 7,
+        "source": "mutate",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1537.4399,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 221.154,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_3f658b9fda"
+      },
+      {
+        "iter": 8,
+        "source": "mutate",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1343.104,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 193.199,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_c976f82d14"
+      },
+      {
+        "iter": 9,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1860.608,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 267.64,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_eab679eefe"
+      },
+      {
+        "iter": 10,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 1518.304,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 218.401,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_2a77bff58d"
+      },
+      {
+        "iter": 11,
+        "source": "random",
+        "valid": true,
+        "correct": true,
+        "latency_us": 2113.888,
+        "kind": "measured-gpu",
+        "pct_of_roofline": 304.073,
+        "kept": false,
+        "best_us": 1532.928,
+        "schedule_id": "sch_6091aec5bd"
+      }
+    ]
+  },
+  "comparison": {
+    "cold_default_start_us": 2168.3519,
+    "cold_best_us": 1261.152,
+    "cold_speedup_default_to_best": 1.7193,
+    "cold_iters_to_best": 2,
+    "warm_start_incumbent_us": 1532.928,
+    "warm_start_vs_cold_start_speedup": 1.4145,
+    "warm_start_vs_cold_default_pct": 29.304,
+    "warm_starts_better_than_cold_start": true,
+    "cold_iters_to_beat_default10pct": 1,
+    "warm_iters_to_beat_default10pct": 0,
+    "iters_saved_to_beat_default10pct": 1,
+    "warm_best_us": 1532.928,
+    "warm_iters_to_cold_best": null,
+    "reach_tolerance": 0.03
+  },
+  "honesty_note": "Every latency is a real CUDA-event median on this RTX 5090 Laptop (sm_120), correctness-gated vs the CPU ReferenceVM (== eager), with candidate-vs-incumbent measured interleaved/back-to-back and kept only on a >2% margin that beats WDDM clock drift. The COLD speedup is the real measured default->best improvement on this model; the WARM win is the starting incumbent (warm begins at/near the cold best from the corpus, which carries the kernel_knobs) and iters-to-reach the cold best. The search grid is narrowed to the productive levers prior autotune work identified, but nothing is fabricated and the gain reported is the true number."
+}
