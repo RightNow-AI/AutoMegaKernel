@@ -2,7 +2,17 @@
 
 All notable changes to AutoMegaKernel. Dates are when the work landed.
 
-## [0.2.0], 2026-06-05
+## [0.3.0], 2026-06-28
+
+### Added
+- **External proposer seam** (`proposer.py`): an optional, public extension point on the
+  propose -> eval -> keep loop. `autoresearch(..., proposer=...)` lets an external package supply
+  the next `(ScheduleConfig, kernel_knobs)` candidate via the `Proposer` protocol (with a
+  `ProposalContext` carrying the incumbent, the `GpuTarget`, the public knob space, the tried-set,
+  and the RNG). A proposal only *chooses a point*; it still flows through the unchanged
+  `lower -> validate -> reference-oracle correctness -> measured keep/revert -> roofline floor`
+  gate, so it can never bypass the honesty guarantees. Default `proposer=None` preserves the
+  built-in epsilon-greedy search byte-identically: no behavior change for existing callers.
 
 ### Added, foundation (M0)
 - **Standard megakernel IR** (`schedule/ir.py`): task-DAG, counter sync model, `ScheduleConfig`

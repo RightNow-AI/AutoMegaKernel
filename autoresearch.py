@@ -41,6 +41,7 @@ import sys
 import time
 import traceback
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -51,8 +52,9 @@ from flywheel import prior  # noqa: E402
 from flywheel.log import CorpusRecord, append_corpus, schedule_id  # noqa: E402
 from flywheel.prior import SEARCHABLE_KNOB_CHOICES as _KNOB_CHOICES_REF  # noqa: E402
 from flywheel.prior import SEARCHABLE_KNOB_DEFAULTS as _KNOB_DEFAULTS_REF  # noqa: E402
-from schedule.ir import TARGETS, ScheduleConfig  # noqa: E402
+from schedule.ir import TARGETS, ScheduleConfig, replace  # noqa: E402
 from schedule.search import default_config, mutate_config, random_config  # noqa: E402
+from proposer import ProposalContext, Proposer  # noqa: E402  (optional external-proposer seam)
 
 DEFAULT_CORPUS = os.path.join("flywheel", "corpus.jsonl")
 DEFAULT_RESULTS = os.path.join("workspace", "results.tsv")
@@ -95,6 +97,11 @@ N_TILE_KNOB_CHOICES = (0, 16, 32, 64, 128)
 # default kernel knobs (the prior production VM build); mirrors flywheel.prior.SEARCHABLE_KNOB_DEFAULTS.
 KNOB_DEFAULTS: dict[str, int] = dict(_KNOB_DEFAULTS_REF)
 
+# Builtin proposal-source tags. An injected proposer's free-text source is namespaced
+# (prefixed 'ext:') if it collides with one of these, so corpus/results provenance cannot
+# masquerade as builtin search.
+_BUILTIN_SOURCES = frozenset({"mutate", "random", "warm_seed", "restart", "default", "prior"})
+
 
 def default_knobs() -> dict[str, int]:
     return dict(KNOB_DEFAULTS)
@@ -119,9 +126,15 @@ def _norm_knobs(knobs: dict[str, int] | None) -> dict[str, int]:
         for k, v in knobs.items():
             if k in KNOB_DEFAULTS:
                 try:
-                    out[k] = int(v)
+                    val = int(v)
                 except (TypeError, ValueError):
-                    pass
+                    continue
+                # Constrain to the public legal set: the builtin search always emits in-range
+                # knobs (drawn from KNOB_CHOICES); enforce the same invariant for any injected
+                # proposer so an out-of-range value can never reach the VM build.
+                if k in KNOB_CHOICES and val not in KNOB_CHOICES[k]:
+                    val = KNOB_DEFAULTS[k]
+                out[k] = val
     return out
 
 
@@ -243,13 +256,39 @@ def _propose(rng: random.Random, iter_idx: int, *, cold: bool, epsilon: float,
              incumbent_cfg: ScheduleConfig, incumbent_knobs: dict[str, int],
              target, model_shape, gpu: str, corpus_path: str, ranker,
              warm_seed_queue: list[tuple[ScheduleConfig, dict[str, int]]],
-             tried: set[str]) -> tuple[ScheduleConfig, dict[str, int], str]:
+             tried: set[str],
+             proposer: Proposer | None = None) -> tuple[ScheduleConfig, dict[str, int], str]:
     """Pick the next COMBINED candidate (ScheduleConfig, kernel_knobs) + a one-word source tag.
 
     Cold run: default -> fresh random (pure exploration; grows the corpus honestly).
     Warm run: drain warm_start seeds first (exploitation of the best known), then epsilon-greedy
     between prior-ranked fresh candidates (exploit) and mutation/random (explore).
     """
+    # An injected proposer (e.g. a private search) owns candidate generation when present. It can
+    # only ever SUGGEST a point in the public space; the returned candidate still flows through the
+    # unchanged lower -> validate -> reference-oracle -> measured keep/revert gate below. Returning
+    # None defers to AMK's built-in search for this iteration (no behavior change).
+    if proposer is not None:
+        # Hand the proposer COPIES / read-only views of shared state so a buggy or adversarial
+        # proposer cannot mutate the loop's incumbent, perturb `target` (which feeds the published
+        # pct_of_roofline), or corrupt the global knob tables across iterations.
+        _ctx = ProposalContext(
+            iter_idx=iter_idx, cold=cold,
+            incumbent_cfg=replace(incumbent_cfg), incumbent_knobs=dict(incumbent_knobs),
+            target=replace(target), model_shape=model_shape, gpu=gpu, corpus_path=corpus_path,
+            tried=frozenset(tried), rng=rng,
+            knob_choices=MappingProxyType(dict(KNOB_CHOICES)),
+            knob_defaults=MappingProxyType(dict(KNOB_DEFAULTS)),
+            n_tile_choices=N_TILE_KNOB_CHOICES,
+            candidate_id=lambda c, k: schedule_id(_candidate_dict(c, k)),
+        )
+        _p = proposer(_ctx)
+        if _p is not None:
+            _src = str(_p.source or "external")
+            if _src in _BUILTIN_SOURCES:
+                _src = "ext:" + _src   # namespace external provenance; never impersonate builtin
+            return _p.config, _norm_knobs(_p.kernel_knobs), _src
+
     # Iteration 0 is always the starting incumbent (default or the top warm seed), handled by caller.
     if cold:
         if rng.random() < 0.5:
@@ -473,6 +512,7 @@ def autoresearch(model: str, gpu: str, *,
                  min_gain: float = MIN_GAIN,
                  overnight: bool = False,
                  restart_after: int = 6,
+                 proposer: Proposer | None = None,
                  verbose: bool = True) -> dict[str, Any]:
     """Run the unattended keep/revert autoresearch loop for ``iters`` iterations OR ``minutes``
     wall-clock (whichever is given; if both, whichever is hit first). Returns an
@@ -618,7 +658,7 @@ def autoresearch(model: str, gpu: str, *,
                     incumbent_knobs=incumbent_knobs,
                     target=target, model_shape=model_shape, gpu=target.name,
                     corpus_path=corpus_path, ranker=ranker,
-                    warm_seed_queue=warm_seed_queue, tried=tried)
+                    warm_seed_queue=warm_seed_queue, tried=tried, proposer=proposer)
             knobs = _norm_knobs(knobs)
             cfg_dict = _candidate_dict(cfg, knobs)   # JSON candidate WITH kernel_knobs embedded
             sid = schedule_id(cfg_dict)

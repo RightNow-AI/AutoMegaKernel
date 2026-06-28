@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "automegakernel"
-version = "0.2.0"
+version = "0.3.0"
 description = "AutoMegaKernel (AMK), autonomously generate a single correct, near-bandwidth-optimal megakernel for any model on any GPU."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -104,6 +104,7 @@ include = [
     "autoresearch.py",
     "amk_orchestrate.py",
     "loop1.py",
+    "proposer.py",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]
@@ -115,6 +116,7 @@ include = [
 "autoresearch.py" = "autoresearch.py"
 "amk_orchestrate.py" = "amk_orchestrate.py"
 "loop1.py" = "loop1.py"
+"proposer.py" = "proposer.py"
 
 # RTX 5090 / Blackwell consumer (sm_120) and datacenter Blackwell (B200, sm_100) both
 # need the cu128 wheel line. The cu128 runtime is forward-compatible with the installed
