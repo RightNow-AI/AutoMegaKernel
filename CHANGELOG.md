@@ -2,6 +2,18 @@
 
 All notable changes to AutoMegaKernel. Dates are when the work landed.
 
+## [0.4.0], 2026-06-28
+
+### Added
+- **Fused-instruction substrate** (`InstructionKind.FUSED`): a generic megakernel instruction that
+  executes a *recipe* of primitive ops over on-chip scratch (kernel fusion), so a fused computation
+  never round-trips its intermediates through global buffers. The CPU reference
+  (`instructions/reference.ref_fused`) interprets the recipe and is bit-identical to the unfused op
+  sequence; a future slice code-gens it to a specialized CUDA device function (the GPU dispatch
+  traps `FUSED` until then). ABI-synced (`vm/abi.h` `AMK_OP_FUSED = 19`). This is the substrate for
+  agent-driven instruction synthesis: a generator can fuse op subsequences and the validator +
+  reference oracle prove each fusion deadlock/race-free and numerically equivalent before admission.
+
 ## [0.3.0], 2026-06-28
 
 ### Added

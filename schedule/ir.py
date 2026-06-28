@@ -167,6 +167,8 @@ class InstructionKind(IntEnum):
     KV_APPEND = 16       # append new k/v into the KV cache page
     SAMPLE_ARGMAX = 17   # logits -> next token (greedy); decode loop terminator
     ATTENTION_COMBINE = 18  # merge per-KV-block (out, m, l) partials (flash online softmax)
+    FUSED = 19          # a recipe of primitive ops run with on-chip scratch (kernel fusion). The
+                        # CPU reference interprets the recipe; a future slice code-gens it to CUDA.
 
 
 @dataclass(frozen=True)
@@ -207,6 +209,10 @@ OP_REGISTRY: dict[InstructionKind, OpSpec] = {
     InstructionKind.KV_APPEND: OpSpec(InstructionKind.KV_APPEND, 2, 2, 1, ("pos",)),
     InstructionKind.SAMPLE_ARGMAX: OpSpec(InstructionKind.SAMPLE_ARGMAX, 1, 1, 1),
     InstructionKind.ATTENTION_COMBINE: OpSpec(InstructionKind.ATTENTION_COMBINE, 2, 8, 1),
+    # A fused instruction: 1..N net inputs, 1 output, the fusion described by the "recipe" param
+    # (a list of primitive steps run over on-chip scratch). Variadic inputs (the union of the
+    # fused subgraph's external reads).
+    InstructionKind.FUSED: OpSpec(InstructionKind.FUSED, 1, -1, 1, ("recipe",)),
 }
 
 # Known scalar param keys and their marshalled type ('i' -> int32, 'f' -> float in amk_params_t).

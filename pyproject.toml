@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "automegakernel"
-version = "0.3.0"
+version = "0.4.0"
 description = "AutoMegaKernel (AMK), autonomously generate a single correct, near-bandwidth-optimal megakernel for any model on any GPU."
 readme = "README.md"
 requires-python = ">=3.12"

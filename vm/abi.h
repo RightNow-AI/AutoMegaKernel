@@ -74,6 +74,7 @@ typedef enum {
     AMK_OP_KV_APPEND      = 16,
     AMK_OP_SAMPLE_ARGMAX  = 17,
     AMK_OP_ATTENTION_COMBINE = 18,   /* merge per-KV-block (out,m,l) partials (flash) */
+    AMK_OP_FUSED          = 19,   /* recipe of primitives over on-chip scratch; CPU-ref only (GPU traps) */
     AMK_OP__COUNT
 } amk_opcode_t;
 

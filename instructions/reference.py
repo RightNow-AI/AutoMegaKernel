@@ -351,6 +351,52 @@ def ref_attention_combine(inputs, outputs, params, ctx):
 
 
 # --------------------------------------------------------------------------------------
+# Fused instruction: a recipe of primitive ops run over on-chip scratch
+# --------------------------------------------------------------------------------------
+def ref_fused(inputs, outputs, params, ctx):
+    """Execute a FUSED instruction: a recipe of primitive op steps run over transient scratch,
+    writing the net result into ``outputs[0]``. The intermediates live only in scratch (that IS
+    the fusion - they never round-trip a global buffer), so the result is bit-identical to the
+    unfused op sequence as long as each scratch tensor carries the same dtype the unfused
+    intermediate buffer would. The reference oracle proves that equivalence.
+
+    ``params['recipe']`` is ``{"steps": [step, ...]}`` where each step is::
+
+        {"op": <int opcode>,
+         "args": [<ref>, ...],          # <ref> = {"in": k}  -> inputs[k]   |  {"s": j} -> scratch[j]
+         "out":  <int j> | "final",     # scratch index, or "final" -> outputs[0]
+         "params": {...},               # the primitive op's params
+         "out_shape": [..], "out_dtype": "..."}  # optional scratch hints (default: empty_like(args[0]))
+    """
+    recipe = params.get("recipe") or {}
+    steps = recipe.get("steps") or []
+    if not steps:
+        raise ValueError("FUSED task has an empty recipe")
+    scratch: dict[int, torch.Tensor] = {}
+
+    def resolve(ref):
+        if "in" in ref:
+            return inputs[int(ref["in"])]
+        return scratch[int(ref["s"])]
+
+    for step in steps:
+        op = InstructionKind(int(step["op"]))
+        if op is InstructionKind.FUSED:
+            raise ValueError("nested FUSED recipes are not allowed")
+        args = [resolve(a) for a in step["args"]]
+        out_ref = step["out"]
+        if out_ref == "final" or out_ref == -1:
+            out_t = outputs[0]
+        else:
+            shape = step.get("out_shape")
+            dtype = getattr(torch, step["out_dtype"]) if step.get("out_dtype") else args[0].dtype
+            out_t = (torch.empty(tuple(shape), dtype=dtype, device=args[0].device)
+                     if shape is not None else torch.empty_like(args[0], dtype=dtype))
+            scratch[int(out_ref)] = out_t
+        reference_for(op)(args, [out_t], step.get("params", {}), ctx)
+
+
+# --------------------------------------------------------------------------------------
 # The registry (opcode -> reference fn). The VM and verifiers dispatch through this.
 # --------------------------------------------------------------------------------------
 REFERENCE: dict[InstructionKind, Callable] = {
@@ -373,6 +419,7 @@ REFERENCE: dict[InstructionKind, Callable] = {
     InstructionKind.KV_APPEND: ref_kv_append,
     InstructionKind.SAMPLE_ARGMAX: ref_sample_argmax,
     InstructionKind.ALLREDUCE_SHARD: ref_allreduce_shard,
+    InstructionKind.FUSED: ref_fused,
 }
 
 
