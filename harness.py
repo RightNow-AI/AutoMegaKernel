@@ -516,6 +516,24 @@ def _evaluate_program(prog: MegakernelProgram, target: GpuTarget, model, eager_d
         v.latency_us = None
         v.latency_kind = None
         v.pct_of_roofline = None
+
+    # MEASURED-bandwidth floor (stricter, for measured numbers only): a real kernel cannot beat the
+    # GPU's SUSTAINED HBM bandwidth, which is below spec peak. The spec floor above is optimistic, so
+    # a config that measures just *above* spec-peak (e.g. 101% of the spec roofline, an implausible
+    # multi-x win over a working default) is still a mis-measurement. Use measured GB/s when known,
+    # else a conservative 0.85x of spec (sustained is typically ~85% of peak), and withhold below it.
+    if v.latency_us is not None and v.latency_kind == "measured-gpu" and weight_bytes > 0:
+        meas_bw = (target.measured_bw_gbs if getattr(target, "measured_bw_gbs", 0) > 0
+                   else 0.85 * target.hbm_bandwidth_gbs)
+        phys_floor_us = (weight_bytes / (meas_bw * 1e9)) * 1e6 if meas_bw > 0 else None
+        if phys_floor_us and v.latency_us < phys_floor_us:
+            v.notes.append(
+                f"measured latency {v.latency_us}us is below the SUSTAINED-bandwidth floor "
+                f"{round(phys_floor_us, 1)}us (can't exceed ~{round(meas_bw)} GB/s); withheld as a "
+                f"measurement artifact (likely a degenerate launch timed near peak)")
+            v.latency_us = None
+            v.latency_kind = None
+            v.pct_of_roofline = None
     return v
 
 
