@@ -353,45 +353,98 @@ def ref_attention_combine(inputs, outputs, params, ctx):
 # --------------------------------------------------------------------------------------
 # Fused instruction: a recipe of primitive ops run over on-chip scratch
 # --------------------------------------------------------------------------------------
+# Recipe dtype allowlist (recipe out_dtype is data; never getattr an arbitrary torch attribute).
+_RECIPE_DTYPES = {
+    "float32": torch.float32, "float16": torch.float16, "bfloat16": torch.bfloat16,
+    "float64": torch.float64, "int8": torch.int8, "int32": torch.int32,
+}
+
+
+def validate_recipe(recipe, n_inputs):
+    """Structural validation of a FUSED recipe. Returns a list of error strings ([] if well-formed).
+    Run before execution so a malformed recipe is a clear error, never an uninitialized read or an
+    opaque IndexError/KeyError deep inside a primitive."""
+    if not isinstance(recipe, dict):
+        return ["recipe must be a dict"]
+    steps = recipe.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return ["recipe.steps must be a non-empty list"]
+    errs, produced, wrote_final = [], set(), False
+    for i, st in enumerate(steps):
+        if not isinstance(st, dict):
+            errs.append(f"step {i} must be a dict")
+            continue
+        try:
+            op = InstructionKind(int(st.get("op")))
+        except Exception:
+            errs.append(f"step {i}: bad op {st.get('op')!r}")
+            op = None
+        if op is InstructionKind.FUSED:
+            errs.append(f"step {i}: nested FUSED is not allowed")
+        for a in (st.get("args") or []):
+            if not (isinstance(a, dict) and len(a) == 1):
+                errs.append(f"step {i}: bad arg {a!r}")
+            elif "in" in a:
+                if not (isinstance(a["in"], int) and 0 <= a["in"] < n_inputs):
+                    errs.append(f"step {i}: input index {a['in']!r} out of range [0,{n_inputs})")
+            elif "s" in a:
+                if a["s"] not in produced:
+                    errs.append(f"step {i}: reads scratch {a['s']!r} not written by an earlier step")
+            else:
+                errs.append(f"step {i}: arg must be {{'in':k}} or {{'s':j}}, got {a!r}")
+        out = st.get("out")
+        if out == "final" or out == -1:
+            wrote_final = True
+        elif isinstance(out, int):
+            produced.add(out)
+        else:
+            errs.append(f"step {i}: out must be 'final' or an int scratch index, got {out!r}")
+        od = st.get("out_dtype")
+        if od is not None and od not in _RECIPE_DTYPES:
+            errs.append(f"step {i}: out_dtype {od!r} not in the allowlist {sorted(_RECIPE_DTYPES)}")
+    if not wrote_final:
+        errs.append("recipe never writes its final output (no step with out=='final')")
+    return errs
+
+
 def ref_fused(inputs, outputs, params, ctx):
     """Execute a FUSED instruction: a recipe of primitive op steps run over transient scratch,
-    writing the net result into ``outputs[0]``. The intermediates live only in scratch (that IS
-    the fusion - they never round-trip a global buffer), so the result is bit-identical to the
-    unfused op sequence as long as each scratch tensor carries the same dtype the unfused
-    intermediate buffer would. The reference oracle proves that equivalence.
+    writing the net result into ``outputs[0]``. Intermediates live only in scratch (that IS the
+    fusion - they never round-trip a global buffer). The result is bit-identical to the unfused op
+    sequence PROVIDED each step FULLY overwrites its scratch output AND the scratch dtype matches the
+    unfused intermediate buffer's dtype - so the recipe carries ``out_shape`` + ``out_dtype`` to
+    guarantee both. Scratch is zero-initialized, so an (invalid) partial write is deterministic
+    rather than reading uninitialized memory; the recipe is structurally validated up front and a
+    malformed recipe raises ValueError instead of crashing deep inside a primitive.
 
     ``params['recipe']`` is ``{"steps": [step, ...]}`` where each step is::
 
         {"op": <int opcode>,
-         "args": [<ref>, ...],          # <ref> = {"in": k}  -> inputs[k]   |  {"s": j} -> scratch[j]
+         "args": [<ref>, ...],          # <ref> = {"in": k} -> inputs[k] | {"s": j} -> scratch[j]
          "out":  <int j> | "final",     # scratch index, or "final" -> outputs[0]
          "params": {...},               # the primitive op's params
-         "out_shape": [..], "out_dtype": "..."}  # optional scratch hints (default: empty_like(args[0]))
+         "out_shape": [..], "out_dtype": "<name>"}  # scratch shape/dtype (default: zeros_like(args[0]))
     """
     recipe = params.get("recipe") or {}
-    steps = recipe.get("steps") or []
-    if not steps:
-        raise ValueError("FUSED task has an empty recipe")
+    errs = validate_recipe(recipe, len(inputs))
+    if errs:
+        raise ValueError("malformed FUSED recipe: " + "; ".join(errs[:4]))
     scratch: dict[int, torch.Tensor] = {}
 
     def resolve(ref):
-        if "in" in ref:
-            return inputs[int(ref["in"])]
-        return scratch[int(ref["s"])]
+        return inputs[int(ref["in"])] if "in" in ref else scratch[int(ref["s"])]
 
-    for step in steps:
+    for step in recipe["steps"]:
         op = InstructionKind(int(step["op"]))
-        if op is InstructionKind.FUSED:
-            raise ValueError("nested FUSED recipes are not allowed")
         args = [resolve(a) for a in step["args"]]
         out_ref = step["out"]
         if out_ref == "final" or out_ref == -1:
             out_t = outputs[0]
         else:
             shape = step.get("out_shape")
-            dtype = getattr(torch, step["out_dtype"]) if step.get("out_dtype") else args[0].dtype
-            out_t = (torch.empty(tuple(shape), dtype=dtype, device=args[0].device)
-                     if shape is not None else torch.empty_like(args[0], dtype=dtype))
+            dtype = _RECIPE_DTYPES[step["out_dtype"]] if step.get("out_dtype") else args[0].dtype
+            out_t = (torch.zeros(tuple(shape), dtype=dtype, device=args[0].device)
+                     if shape is not None else torch.zeros_like(args[0], dtype=dtype))
             scratch[int(out_ref)] = out_t
         reference_for(op)(args, [out_t], step.get("params", {}), ctx)
 

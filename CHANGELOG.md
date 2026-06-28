@@ -11,8 +11,9 @@ All notable changes to AutoMegaKernel. Dates are when the work landed.
   (`instructions/reference.ref_fused`) interprets the recipe and is bit-identical to the unfused op
   sequence; a future slice code-gens it to a specialized CUDA device function (the GPU dispatch
   traps `FUSED` until then). ABI-synced (`vm/abi.h` `AMK_OP_FUSED = 19`). This is the substrate for
-  agent-driven instruction synthesis: a generator can fuse op subsequences and the validator +
-  reference oracle prove each fusion deadlock/race-free and numerically equivalent before admission.
+  agent-driven instruction synthesis: a generator fuses op subsequences, the validator gates each
+  kept fusion deadlock/race-free, and the reference oracle then proves the final fused program
+  numerically equivalent to the unfused one.
 
 ## [0.3.0], 2026-06-28
 
