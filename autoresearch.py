@@ -53,7 +53,14 @@ from flywheel.log import CorpusRecord, append_corpus, schedule_id  # noqa: E402
 from flywheel.prior import SEARCHABLE_KNOB_CHOICES as _KNOB_CHOICES_REF  # noqa: E402
 from flywheel.prior import SEARCHABLE_KNOB_DEFAULTS as _KNOB_DEFAULTS_REF  # noqa: E402
 from schedule.ir import TARGETS, ScheduleConfig, replace  # noqa: E402
-from schedule.search import default_config, mutate_config, random_config  # noqa: E402
+from schedule.search import (  # noqa: E402
+    KV_BLOCK_CHOICES,
+    PIPELINING_CHOICES,
+    THREADS_PER_BLOCK_CHOICES,
+    default_config,
+    mutate_config,
+    random_config,
+)
 from proposer import ProposalContext, Proposer  # noqa: E402  (optional external-proposer seam)
 
 DEFAULT_CORPUS = os.path.join("flywheel", "corpus.jsonl")
@@ -280,6 +287,9 @@ def _propose(rng: random.Random, iter_idx: int, *, cold: bool, epsilon: float,
             knob_choices=MappingProxyType(dict(KNOB_CHOICES)),
             knob_defaults=MappingProxyType(dict(KNOB_DEFAULTS)),
             n_tile_choices=N_TILE_KNOB_CHOICES,
+            threads_per_block_choices=tuple(THREADS_PER_BLOCK_CHOICES),
+            pipelining_choices=tuple(PIPELINING_CHOICES),
+            kv_block_choices=tuple(KV_BLOCK_CHOICES),
             candidate_id=lambda c, k: schedule_id(_candidate_dict(c, k)),
         )
         _p = proposer(_ctx)

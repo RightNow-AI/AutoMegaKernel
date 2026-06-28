@@ -57,6 +57,14 @@ class ProposalContext:
     knob_defaults: dict[str, int]
     # Extra schedule-side lever the loop also sweeps (GEMV tile width; 0 == auto).
     n_tile_choices: tuple[int, ...] = ()
+    # Per-run schedule-lever choices (analogous to knob_choices): a proposer must draw ONLY from
+    # these, so a caller pins a lever by passing it a single-value tuple. Empty == defer to the
+    # public defaults. This is how a user's "optimize for exactly these settings / this GPU target"
+    # reaches an injected proposer, instead of the proposer inventing its own ranges and overriding
+    # the user's intent.
+    threads_per_block_choices: tuple[int, ...] = ()
+    pipelining_choices: tuple[int, ...] = ()
+    kv_block_choices: tuple[int, ...] = ()
     # Canonical id of a (cfg, knobs) candidate matching the loop's dedupe key, so
     # a proposer can avoid re-emitting an already-tried point. None outside the loop.
     candidate_id: Callable[[ScheduleConfig, dict[str, int]], str] | None = None
