@@ -74,9 +74,18 @@ typedef enum {
     AMK_OP_KV_APPEND      = 16,
     AMK_OP_SAMPLE_ARGMAX  = 17,
     AMK_OP_ATTENTION_COMBINE = 18,   /* merge per-KV-block (out,m,l) partials (flash) */
-    AMK_OP_FUSED          = 19,   /* recipe of primitives over on-chip scratch; CPU-ref only (GPU traps) */
+    AMK_OP_FUSED          = 19,   /* recipe of primitives; CPU-ref always, GPU runs known patterns below */
     AMK_OP__COUNT
 } amk_opcode_t;
+
+/* ---- Fused-instruction patterns ----------------------------------------------------------------
+ * The FUSED op's params.flags bits 16-31 select which fused kernel runs on device. The variable-
+ * size recipe stays HOST-side (the CPU oracle / synthesizer); only this compact pattern id, the
+ * constituent op's scalar params, and the buffer ids cross the ABI. An unknown pattern traps. */
+typedef enum {
+    AMK_FUSED_NONE     = 0,
+    AMK_FUSED_GEMV_ADD = 1,   /* out = x@W.T + residual(inputs[2]); decode M==1, fp32 intermediate */
+} amk_fused_pattern_t;
 
 /* ---- Counter type ------------------------------------------------------------------------
  * One 32-bit unsigned counter per sync point, resident in global memory, host-memset to zero

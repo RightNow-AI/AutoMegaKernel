@@ -825,7 +825,11 @@ __device__ __forceinline__ void amk_gemv_tile_cpasync(const amk_device_program& 
  * it passes the same frozen tolerance, it is simply slow because of the access pattern. */
 #ifdef AMK_GEMV_SCALAR
 __device__ AMK_OP_QUAL void amk_inst_gemv_tile(const amk_device_program& prog,
-                                                   const amk_instruction_t& inst) {
+                                                   const amk_instruction_t& inst,
+                                                   int res_id = -1) {
+    /* res_id >= 0 (set by amk_inst_fused for AMK_FUSED_GEMV_ADD) adds residual[res_id] to each
+     * output element in-register before the single store, eliminating the intermediate's global
+     * round-trip + one ADD instruction's dispatch/sync. -1 == the ordinary unfused GEMV. */
     /* weight-only quantized tile? (params.qdtype set to I4/I8 by the quantized lowering) */
     if (inst.params.qdtype == AMK_I4 || inst.params.qdtype == AMK_I8) {
         amk_inst_gemv_tile_quant(prog, inst); return;
@@ -861,7 +865,11 @@ __device__ AMK_OP_QUAL void amk_inst_gemv_tile(const amk_device_program& prog,
 }
 #else
 __device__ AMK_OP_QUAL void amk_inst_gemv_tile(const amk_device_program& prog,
-                                                   const amk_instruction_t& inst) {
+                                                   const amk_instruction_t& inst,
+                                                   int res_id = -1) {
+    /* res_id >= 0 (set by amk_inst_fused for AMK_FUSED_GEMV_ADD) adds residual[res_id] to each
+     * output element in-register before the single store, eliminating the intermediate's global
+     * round-trip + one ADD instruction's dispatch/sync. -1 == the ordinary unfused GEMV. */
     /* weight-only quantized tile? (params.qdtype set to I4/I8 by the quantized lowering) */
     if (inst.params.qdtype == AMK_I4 || inst.params.qdtype == AMK_I8) {
         amk_inst_gemv_tile_quant(prog, inst); return;
@@ -1006,7 +1014,12 @@ __device__ AMK_OP_QUAL void amk_inst_gemv_tile(const amk_device_program& prog,
                     a += __shfl_down_sync(0xffffffffu, a, o);
                 if (lane == 0 && c < cols) {
                     const int n = n0 + c;
-                    amk_store_f(out, m * out.stride[0] + (int64_t)n * out.stride[1], a);
+                    float val = a;
+                    if (res_id >= 0) {   /* FUSED GEMV_ADD: residual added in-register, no round-trip */
+                        const amk_buffer_t& res = amk_buf(prog, res_id);
+                        val += amk_load_f(res, m * res.stride[0] + (int64_t)n * res.stride[1]);
+                    }
+                    amk_store_f(out, m * out.stride[0] + (int64_t)n * out.stride[1], val);
                 }
             }
         }
@@ -1312,6 +1325,20 @@ __device__ __forceinline__ void amk_trap_unimplemented(const amk_device_program&
     __syncthreads();
 }
 
+__device__ AMK_OP_QUAL void amk_inst_fused(const amk_device_program& prog,
+                                           const amk_instruction_t& inst) {
+    /* Run a recognized fused PATTERN on device (the variable-size recipe stays host-side as the CPU
+     * oracle/synthesizer; only the pattern id in params.flags bits 16-31 + the constituent op's
+     * scalar params + buffer ids cross the ABI). Only the register-path build (no cp.async, no
+     * scalar ablation) carries the GEMV_ADD residual epilogue; any other build or an unknown
+     * pattern TRAPS loudly rather than silently miscomputing. */
+    const int pat = (inst.params.flags >> 16) & 0xFFFF;
+#if !defined(AMK_GEMV_CPASYNC) && !defined(AMK_GEMV_SCALAR)
+    if (pat == AMK_FUSED_GEMV_ADD) { amk_inst_gemv_tile(prog, inst, inst.inputs[2]); return; }
+#endif
+    amk_trap_unimplemented(prog, inst.op);
+}
+
 __device__ __forceinline__ void amk_dispatch(const amk_device_program& prog,
                                              const amk_instruction_t& inst) {
     switch (inst.op) {
@@ -1327,6 +1354,7 @@ __device__ __forceinline__ void amk_dispatch(const amk_device_program& prog,
         case AMK_OP_ADD:            amk_inst_add(prog, inst);            break;
         case AMK_OP_SILU_MUL:       amk_inst_silu_mul(prog, inst);       break;
         case AMK_OP_SAMPLE_ARGMAX:  amk_inst_sample_argmax(prog, inst);  break;
+        case AMK_OP_FUSED:          amk_inst_fused(prog, inst);          break;
         default:                    /* unknown/unimplemented opcode -> TRAP (abort, don't hang) */
                                     amk_trap_unimplemented(prog, inst.op); break;
     }
