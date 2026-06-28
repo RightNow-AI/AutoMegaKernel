@@ -139,6 +139,16 @@ def _load_model(model_id: str, dtype: torch.dtype = torch.float32):
     return _compile.load_model(model_id, dtype=dtype)
 
 
+def _model_weights(model) -> dict:
+    """Weights dict for the reference/measured VMs, keyed to match the importer's buffer.source.
+    The toy model exposes weights_dict(); a real HuggingFace model exposes state_dict() (whose keys
+    the from_hf importer uses as buffer.source). This lets the measured autoresearch loop run on HF
+    checkpoints, not only the toy."""
+    if hasattr(model, "weights_dict"):
+        return _model_weights(model)
+    return dict(model.state_dict())
+
+
 def _resolve_target(gpu: str) -> GpuTarget:
     if gpu not in TARGETS:
         raise KeyError(f"unknown gpu {gpu!r}; known targets: {', '.join(sorted(TARGETS))}")
@@ -163,7 +173,7 @@ def _infer_model_dtype(model) -> tuple[DType, torch.dtype]:
     """Infer (IR DType, torch dtype) from the model's floating-point weights. Defaults to F32 for
     an all-integer/quantized state dict (the lowerer's historical default)."""
     try:
-        for t in model.weights_dict().values():
+        for t in _model_weights(model).values():
             if isinstance(t, torch.Tensor) and t.is_floating_point():
                 return _TORCH_TO_DTYPE.get(t.dtype, DType.F32), t.dtype
     except Exception:
@@ -437,7 +447,7 @@ def _evaluate_program(prog: MegakernelProgram, target: GpuTarget, model, eager_d
 
     # ---- correctness (AUTHORITATIVE): CPU reference VM vs eager PyTorch ----
     inputs = _probe_inputs(token, device)
-    ref_logits = ReferenceVM(prog, model.weights_dict(), device="cpu").run(inputs, kv={})["logits"]
+    ref_logits = ReferenceVM(prog, _model_weights(model), device="cpu").run(inputs, kv={})["logits"]
     eager_logits = eager_decode(token).to("cpu", torch.float32)
     cverdict = logit_equivalence(ref_logits, eager_logits, dtype=gate_dtype)
 
@@ -464,7 +474,7 @@ def _evaluate_program(prog: MegakernelProgram, target: GpuTarget, model, eager_d
         try:
             from vm.loader import MegakernelVM
             gpu_in = {k: val.to("cuda") for k, val in inputs.items()}
-            gvm = MegakernelVM(prog, model.weights_dict(), device="cuda", knobs=dict(kk))
+            gvm = MegakernelVM(prog, _model_weights(model), device="cuda", knobs=dict(kk))
             if not _knobs_are_default(kk):
                 notes.append(f"kernel_knobs={kk}")
             gpu_logits = gvm.run(gpu_in, kv={})["logits"].to("cpu", torch.float32)
