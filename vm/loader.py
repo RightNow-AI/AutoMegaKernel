@@ -175,12 +175,13 @@ _KNOB_MACRO = {
     "qc":            "AMK_QGEMV_COLS",   # quantized (int4/int8) GEMV output columns per warp
     "qcpasync":      "AMK_QGEMV_CPASYNC",  # int8 quant GEMV cp.async ring (sm_80+; 0 -> synchronous path)
     "gemm_wmma":     "AMK_GEMM_WMMA",  # tensor-core (WMMA) batched GEMM (M>1; bf16/f16; sm_80+; throughput)
+    "qfastdeq":      "AMK_QGEMV_FASTDEQ",  # fast fp16-bit-trick int4 dequant GEMV (symmetric; sm_53+)
 }
 # cp.async is the production decode path (latency-hiding double-buffer); defaults here mirror the
 # ops.cuh #defines (CPC=4, STAGES=3, VPL=2) and fit the megakernel SMEM budget at 2 blocks/SM.
 _KNOB_DEFAULTS = {"cols_per_warp": 1, "kunroll": 1, "lb_maxthreads": 0, "lb_minblocks": 0,
                   "gemv_max_k": 0, "cpasync": 1, "cpa_cols": 2, "cpa_stages": 4, "cpa_vpl": 1,
-                  "qc": 4, "qcpasync": 0, "gemm_wmma": 0}
+                  "qc": 4, "qcpasync": 0, "gemm_wmma": 0, "qfastdeq": 0}
 
 
 def _normalize_knobs(knobs: dict | None) -> dict:
@@ -224,7 +225,8 @@ def _knob_suffix(knobs: dict) -> str:
     """Stable, filesystem-safe variant suffix from non-default knobs (empty for the default set)."""
     parts = [f"{k}{knobs[k]}" for k in
              ("cols_per_warp", "kunroll", "lb_maxthreads", "lb_minblocks", "gemv_max_k",
-              "cpasync", "cpa_cols", "cpa_stages", "cpa_vpl", "qc", "qcpasync", "gemm_wmma")
+              "cpasync", "cpa_cols", "cpa_stages", "cpa_vpl", "qc", "qcpasync", "gemm_wmma",
+              "qfastdeq")
              if knobs[k] != _KNOB_DEFAULTS[k]]
     return ("_" + "_".join(parts)) if parts else ""
 
@@ -375,6 +377,10 @@ def _build_extension(gemv_scalar: bool = False, knobs: dict | None = None,
     # are byte-identical and the GEMV decode cubin is untouched; the kernel #if also guards sm_80+.
     if knobs.get("gemm_wmma") and cap[0] >= 8:
         nvcc_flags.append(f"-DAMK_GEMM_WMMA={knobs['gemm_wmma']}")
+    # fast fp16-bit-trick int4 dequant GEMV (symmetric weight-only; needs half2 == sm_53+). Off by
+    # default so the quant decode path is byte-identical unless opted in; the kernel #if also guards.
+    if knobs.get("qfastdeq") and cap[0] >= 6:
+        nvcc_flags.append(f"-DAMK_QGEMV_FASTDEQ={knobs['qfastdeq']}")
     if knobs["lb_maxthreads"] > 0 and knobs["lb_minblocks"] > 0:
         nvcc_flags.append(f"-DAMK_LB_MAXTHREADS={knobs['lb_maxthreads']}")
         nvcc_flags.append(f"-DAMK_LB_MINBLOCKS={knobs['lb_minblocks']}")

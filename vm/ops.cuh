@@ -615,6 +615,39 @@ __device__ AMK_OP_QUAL void amk_inst_gemv_tile_quant(const amk_device_program& p
                         const uint32_t w0 = raw.x, w1 = raw.y, w2 = raw.z, w3 = raw.w;
                         const float sc = __half2float(Sp[srow + g]);
                         const float z  = has_zeros ? __half2float(Zp[srow + g]) : 8.f; /* sym: q-8 */
+#if defined(AMK_QGEMV_FASTDEQ) && ((__CUDA_ARCH__ >= 530) || !defined(__CUDA_ARCH__))
+                        if (!has_zeros) {
+                            /* FAST DEQUANT (symmetric int4): convert each nibble q to fp16 via the
+                             * mantissa bit-trick - (0x6400 | q) reads as fp16 1024+q, so hsub 1032
+                             * yields q-8 - then MULTIPLY-ACCUMULATE as half2 (2 cols/op) against fp16
+                             * x, summing the 32-chunk in a fp16 pair flushed to fp32 (one group, <=32
+                             * terms -> within the bf16/fp16 tolerance). Replaces the naive per-nibble
+                             * (shift,mask,int->float,fp32 FMA) ~5-6 ALU/wt with ~2 -> measured 1.70x on
+                             * the standalone int4 GEMV (scratchpad/int4_fastdequant_probe.py). */
+                            const uint32_t MAGIC = 0x64006400u;             /* {1024.0h, 1024.0h} */
+                            const __half2 BIAS = __float2half2_rn(1032.0f); /* 1024 + zero(8) -> q-8 */
+                            const uint32_t wq[4] = {w0, w1, w2, w3};
+                            __half2 ps = __float2half2_rn(0.f);
+                            #pragma unroll
+                            for (int j = 0; j < 4; ++j) {
+                                const uint32_t wj = wq[j];
+                                #pragma unroll
+                                for (int e = 0; e < 4; ++e) {
+                                    const int cc = 2 * e;
+                                    uint32_t pr = ((wj >> (4*cc)) & 0xFu)
+                                                | (((wj >> (4*(cc+1))) & 0xFu) << 16);
+                                    pr |= MAGIC;
+                                    const __half2 qd = __hsub2(*reinterpret_cast<__half2*>(&pr), BIAS);
+                                    const int idx = kbase + j*8 + cc;
+                                    const __half2 xv = __halves2half2(__float2half(xs[idx]),
+                                                                      __float2half(xs[idx + 1]));
+                                    ps = __hfma2(qd, xv, ps);
+                                }
+                            }
+                            acc[c] += (__low2float(ps) + __high2float(ps)) * sc;
+                        } else
+#endif
+                        {
                         float p = 0.f;
                         #pragma unroll
                         for (int e = 0; e < 8; ++e) {
@@ -624,6 +657,7 @@ __device__ AMK_OP_QUAL void amk_inst_gemv_tile_quant(const amk_device_program& p
                             p += xs[kbase + 24 + e] * ((float)((w3 >> (e*4)) & 0xF) - z);
                         }
                         acc[c] += p * sc;
+                        }
                     }
                 }
                 for (int k = (use_smem_x ? Kv4 * 32 : 0) + lane; k < K; k += warpSize) {  /* tail (or full GEMV when K > smem cap) */
