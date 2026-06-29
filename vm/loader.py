@@ -275,10 +275,15 @@ def _qgemv_cpasync_smem(knobs: dict, program, threads_per_block: int) -> int:
     return x_floats * 4 + ring_bytes
 
 
+_GEMM_WMMA_STAGES = 3  # must match vm/ops.cuh AMK_GEMM_WMMA_STAGES (the cp.async ring depth, mode 2)
+
+
 def _gemm_wmma_smem(knobs: dict, program, threads_per_block: int) -> int:
-    """Dynamic SMEM bytes the tensor-core (WMMA) GEMM needs: per warp a 16x16 A stage + 16x16 B stage
-    (bf16/f16, 2 bytes each) + a 16x16 fp32 C scratch = 256*2 + 256*2 + 256*4 = 2048 bytes. Returns 0
-    when gemm_wmma is off or the program has no fp (non-quant) GEMM_TILE task."""
+    """Dynamic SMEM bytes the tensor-core (WMMA) GEMM needs per warp. Mode 1 (direct-load): a 16x16 A
+    stage + 16x16 B stage (bf16/f16, 2B each) + a 16x16 fp32 C scratch = 256*2 + 256*2 + 256*4 = 2048B.
+    Mode 2 (cp.async-staged): a STAGES-deep ring of (A 16x16 + B 16x16) overlaying the A/B stage +
+    the C scratch = STAGES*1024 + 1024 (4096B at STAGES=3). Returns 0 when gemm_wmma is off or the
+    program has no fp (non-quant) GEMM_TILE task."""
     if not knobs.get("gemm_wmma"):
         return 0
     has_fp_gemm = any(int(t.op) == int(InstructionKind.GEMM_TILE) and
@@ -287,7 +292,9 @@ def _gemm_wmma_smem(knobs: dict, program, threads_per_block: int) -> int:
         return 0
     WARP = 32
     nwarps = (threads_per_block + WARP - 1) // WARP
-    return nwarps * 2048
+    if int(knobs.get("gemm_wmma", 0)) >= 2:        # cp.async-staged ring + C scratch
+        return nwarps * (_GEMM_WMMA_STAGES * 1024 + 1024)
+    return nwarps * 2048                            # direct-load A + B + C
 
 
 def _build_extension(gemv_scalar: bool = False, knobs: dict | None = None,

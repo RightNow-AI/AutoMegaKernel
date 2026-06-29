@@ -1141,6 +1141,20 @@ __device__ __forceinline__ void amk_gemm_rowtile_f16(const __half* __restrict__ 
 __device__ __forceinline__ void amk_w_set_zero(__nv_bfloat16& z) { z = __float2bfloat16(0.0f); }
 __device__ __forceinline__ void amk_w_set_zero(__half&        z) { z = __float2half(0.0f); }
 
+/* AMK_GEMM_WMMA selects the WMMA variant: 1 = direct-load (fragments straight from global, best at high
+ * occupancy); 2 = cp.async-STAGED (prefetch the next K-tile's A+B global->SMEM ring while computing the
+ * current -> per-warp ILP hides HBM latency when the megakernel runs only ~8 warps/SM). STAGES = ring
+ * depth. The staged ring (STAGES*(A 256 + B 256) WT) overlays the partial-tile A/B stage (a warp uses
+ * one or the other per m-tile), so SMEM/warp = max(direct 2048, STAGES*1024 + C 1024). */
+#ifndef AMK_GEMM_WMMA_STAGES
+#define AMK_GEMM_WMMA_STAGES 3
+#endif
+#if AMK_GEMM_WMMA >= 2
+#define AMK_GEMM_WMMA_RING_WT (AMK_GEMM_WMMA_STAGES * 256 * 2)   /* ringA+ringB elems (WT) */
+#else
+#define AMK_GEMM_WMMA_RING_WT (256 * 2)                          /* just as+bs (direct/partial) */
+#endif
+
 /* =============================================================================================
  * TENSOR-CORE batched GEMM (lift the M>1 GEMM off the scalar-FMA ceiling ~1.3 TFLOPs / ~76 GB/s).
  * =============================================================================================
@@ -1175,11 +1189,14 @@ __device__ __forceinline__ void amk_gemm_tile_wmma(const amk_device_program& pro
     const int nwarps = (blockDim.x + warpSize - 1) / warpSize;
 
     extern __shared__ float s_wmma[];                 /* shared dyn-smem (float-typed, like s_cpa) */
-    char* sb  = (char*)s_wmma + (size_t)warp * (256 * sizeof(WT) * 2 + 256 * 4);
-    WT*    as = (WT*)sb;                               /* A stage [16][16] (partial m/k tiles)  */
-    WT*    bs = (WT*)(sb + 256 * sizeof(WT));          /* B stage [16][16] (partial n/k tiles)  */
-    float* cs = (float*)(sb + 256 * sizeof(WT) * 2);   /* C scratch [16][16] fp32 (epilogue)    */
+    const int RING_WT = AMK_GEMM_WMMA_RING_WT;        /* ring (staged) or as+bs (direct), in WT elems */
+    char* sb  = (char*)s_wmma + (size_t)warp * ((size_t)RING_WT * sizeof(WT) + 256 * 4);
+    WT*    ring = (WT*)sb;                             /* staged: ringA[STAGES*256] then ringB[STAGES*256] */
+    WT*    as = ring;                                  /* partial A stage [16][16] (== ring stage 0 A)    */
+    WT*    bs = ring + (RING_WT / 2);                  /* partial B stage (== ringB base)                 */
+    float* cs = (float*)(sb + (size_t)RING_WT * sizeof(WT));  /* C scratch [16][16] fp32 (epilogue)       */
     WT zero; amk_w_set_zero(zero);
+    (void)ring;
 
     wmma::fragment<wmma::matrix_a, 16, 16, 16, WT, wmma::row_major> a_frag;
     wmma::fragment<wmma::matrix_b, 16, 16, 16, WT, wmma::col_major> b_frag;
@@ -1191,6 +1208,41 @@ __device__ __forceinline__ void amk_gemm_tile_wmma(const amk_device_program& pro
         for (int64_t m0 = 0; m0 < M; m0 += 16) {
             const bool mfull = (m0 + 16 <= M);
             wmma::fill_fragment(c_frag, 0.0f);
+#if AMK_GEMM_WMMA >= 2
+            /* cp.async-STAGED full-tile k-loop: prefetch STAGES-1 K-tiles ahead (HBM->SMEM ring) so
+             * the tensor cores never stall on the fragment load at low warp-occupancy. Full tiles only
+             * (mfull && nfull && K%16==0); ragged edges fall to the direct/partial loop below. */
+            if (mfull && nfull && ((K & 15) == 0)) {
+                WT* ringA = ring;
+                WT* ringB = ring + AMK_GEMM_WMMA_STAGES * 256;
+                const int nk = K >> 4;
+                int committed = 0;
+                const int prime = (AMK_GEMM_WMMA_STAGES - 1 < nk) ? (AMK_GEMM_WMMA_STAGES - 1) : nk;
+                #define AMK_WMMA_LOAD_KT(st, kk)                                                       \
+                do {                                                                                   \
+                    const int _r = lane >> 1, _h = (lane & 1) * 8;                                     \
+                    __pipeline_memcpy_async(ringA + (st) * 256 + _r * 16 + _h,                         \
+                                            Xp + (m0 + _r) * xrs + (kk) + _h, 16);                     \
+                    __pipeline_memcpy_async(ringB + (st) * 256 + _r * 16 + _h,                         \
+                                            Wp + (int64_t)(n0 + _r) * wrs + (kk) + _h, 16);            \
+                    __pipeline_commit();                                                               \
+                } while (0)
+                for (int s = 0; s < prime; ++s) { AMK_WMMA_LOAD_KT(s, s * 16); ++committed; }
+                for (int ki = 0; ki < nk; ++ki) {
+                    const int nx = ki + (AMK_GEMM_WMMA_STAGES - 1);
+                    if (nx < nk) { AMK_WMMA_LOAD_KT(nx % AMK_GEMM_WMMA_STAGES, nx * 16); ++committed; }
+                    const int remain = committed - ki - 1;
+                    __pipeline_wait_prior(remain > 0 ? remain : 0);
+                    __syncwarp();
+                    wmma::load_matrix_sync(a_frag, ringA + (ki % AMK_GEMM_WMMA_STAGES) * 256, 16);
+                    wmma::load_matrix_sync(b_frag, ringB + (ki % AMK_GEMM_WMMA_STAGES) * 256, 16);
+                    wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+                    __syncwarp();
+                }
+                __pipeline_wait_prior(0);
+                #undef AMK_WMMA_LOAD_KT
+            } else
+#endif
             for (int k0 = 0; k0 < K; k0 += 16) {
                 const bool kfull = (k0 + 16 <= K);
                 if (mfull && kfull) {
