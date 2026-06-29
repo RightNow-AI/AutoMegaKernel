@@ -69,7 +69,9 @@ N_TILE_CHOICES = (64, 128, 256, 512)
 PIPELINING_CHOICES = (0, 1, 2, 3, 4)
 SM_POLICY_CHOICES = ("round_robin", "load_balance")     # RESERVED knob (not yet consumed)
 PAGE_POLICY_CHOICES = ("linear", "graph_color", "none")  # RESERVED knob (not yet consumed)
-THREADS_PER_BLOCK_CHOICES = (128, 256, 512)
+THREADS_PER_BLOCK_CHOICES = (128, 256)  # 512 deadlocks the cooperative grid-sync kernel (measured);
+# restore only after the barrier is fixed + re-validated for higher occupancy. A search must never
+# propose a config that can hang.
 KV_BLOCK_CHOICES = (64, 128, 256)
 # RESERVED knob (recorded + searchable, not yet consumed by the frozen lowerer):
 FUSION_CHOICES: tuple[tuple[list[str], ...], ...] = (

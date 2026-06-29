@@ -420,6 +420,16 @@ class MegakernelVM:
         self.num_sms = program.target.num_sms if program.target else 82
         cfg = program.config
         self.threads_per_block = cfg.threads_per_block if cfg else 256
+        # STABILITY GUARD: the cooperative grid-sync megakernel is validated up to 256 threads/block;
+        # 512 deadlocks it (measured). Refuse it with a fast, clear error instead of hanging, BEFORE
+        # the expensive build/launch - a production system must never hang. Raise the cap only after
+        # the cooperative barrier is fixed + re-validated (then restore 512 to THREADS_PER_BLOCK_CHOICES).
+        _SAFE_MAX_TPB = 256
+        if self.threads_per_block > _SAFE_MAX_TPB:
+            raise ValueError(
+                f"threads_per_block={self.threads_per_block} exceeds the cooperative-kernel validated "
+                f"maximum {_SAFE_MAX_TPB}; higher values deadlock the grid sync. Refused (fail-fast), "
+                f"not launched, so the system never hangs.")
         self.dyn_smem_bytes = cfg.smem_bytes_per_block if cfg else 0
         # Software-pipelining depth (ScheduleConfig.pipelining_depth). Threaded to the kernel per
         # GEMV_TILE via the unused params.M_tile slot (GEMV reads only K/N_tile/n_off); the
