@@ -423,7 +423,7 @@ class MegakernelVM:
                  device: str = "cuda", strict_validate: bool = True,
                  gemv_scalar: bool | None = None, sm_round_robin: bool = False,
                  disable_persistent: bool = False, knobs: dict | None = None,
-                 op_noinline: bool = False):
+                 op_noinline: bool = False, blocks_per_sm: int = 1):
         """ABLATION KNOBS (paper A/B; all default to the production config):
           * ``gemv_scalar``      , compile the UNCOALESCED v1 GEMV (one-thread-per-column) instead
                                     of the default warp-per-column vectorized coalesced path. None
@@ -446,6 +446,13 @@ class MegakernelVM:
             gemv_scalar = os.environ.get("AMK_GEMV_SCALAR", "") not in ("", "0", "false", "False")
         self.gemv_scalar = bool(gemv_scalar)
         self.sm_round_robin = bool(sm_round_robin)
+        # THROUGHPUT occupancy lever: target blocks-per-SM for the cooperative grid. Default 1 (the
+        # classic 1-block-per-SM persistent kernel). 2 doubles warp occupancy (16 warps/SM at tpb=256)
+        # by launching 2*num_sms blocks into 2*num_sms finer queues - lifts the warp-starved batched
+        # GEMM. Capped by real co-residency (max_coresident_blocks): a high-SMEM program (e.g. the B=1
+        # GEMV cp.async path at 75KB) only fits 1/SM, so it falls back automatically. The cooperative
+        # launch is occupancy-guarded (vm_ext REFUSES grid_dim > co-residency) -> never hangs.
+        self.blocks_per_sm = max(1, int(blocks_per_sm))
         self.disable_persistent = bool(disable_persistent)
         self.op_noinline = bool(op_noinline)
         self.knobs = _normalize_knobs(knobs)
@@ -546,13 +553,17 @@ class MegakernelVM:
             raise ValueError("MegakernelVM refuses: program has a dependency cycle")
 
         # ---- occupancy-checked cooperative grid_dim (abi.h: never exceed co-residency) ----
-        # One block per SM is the target; if occupancy forces fewer co-resident blocks than
-        # num_sms, we cap grid_dim and pack all work into [0, grid_dim). We compute this ONCE here
-        # so SM assignment lands within the launchable grid.
+        # Target = blocks_per_sm * num_sms blocks packed into that many finer queues; default
+        # blocks_per_sm=1 is the classic 1/SM. Always clamped to the REAL co-residency limit
+        # (max_coresident_blocks) so a high-SMEM/register program falls back to fewer blocks/SM and
+        # the cooperative launch never exceeds occupancy. SM assignment + queues are sized to grid_dim.
+        # NOTE: the device's prog.num_sms field is set to grid_dim (loader passes grid_dim for both the
+        # num_sms-arg and the gridDim-arg), so the scheduler's `sm < prog.num_sms` bound = `sm <
+        # grid_dim` and all launched blocks process their queue (no starvation when grid_dim > num_sms).
         max_grid = int(self.ext.max_coresident_blocks(self.threads_per_block, self.dyn_smem_bytes))
         if max_grid <= 0:
             raise RuntimeError("AMK: kernel reports zero occupancy at this launch config")
-        self.grid_dim = min(self.num_sms, max_grid)
+        self.grid_dim = min(self.blocks_per_sm * self.num_sms, max_grid)
 
         self._assign_sms()
 
@@ -598,8 +609,9 @@ class MegakernelVM:
                 eb, ef = cost_of.get(tid, (0, 0))
                 heapq.heappush(heap, (bl + eb, fl + ef, cnt + 1, s))
 
-        # per-SM queues in global topo order (length num_sms; queues for SM>=grid_dim stay empty)
-        self._queues: list[list[int]] = [[] for _ in range(self.num_sms)]
+        # per-queue lists in global topo order, one per launched block (length grid_dim; _sm_of lands
+        # every task in [0, grid_dim) so all queues are reachable and none is unassigned).
+        self._queues: list[list[int]] = [[] for _ in range(self.grid_dim)]
         for tid in self._topo:
             self._queues[self._sm_of[tid]].append(tid)
 
@@ -801,11 +813,12 @@ class MegakernelVM:
             if int(t.op) == int(InstructionKind.GEMV_TILE):
                 p["M_tile"] = int(self.pipelining_depth)
 
-        # ---- 6. flattened per-SM queues in GLOBAL TOPO ORDER -----------------------------------
-        q_off = np.zeros(self.num_sms, dtype=np.int32)
-        q_len = np.zeros(self.num_sms, dtype=np.int32)
+        # ---- 6. flattened per-block queues in GLOBAL TOPO ORDER (one queue per launched block) ----
+        nq = self.grid_dim
+        q_off = np.zeros(nq, dtype=np.int32)
+        q_len = np.zeros(nq, dtype=np.int32)
         flat: list[int] = []
-        for s in range(self.num_sms):
+        for s in range(nq):
             q_off[s] = len(flat)
             q_len[s] = len(self._queues[s])
             flat.extend(self._queues[s])
@@ -831,9 +844,9 @@ class MegakernelVM:
 
         # ---- 8. occupancy-checked cooperative gridDim (computed at init; assignment fits it) ----
         grid_dim = self.grid_dim
-        # invariant: SM assignment landed in [0, grid_dim), so no non-empty queue is unreachable.
-        for s in range(grid_dim, self.num_sms):
-            assert not self._queues[s], "AMK loader bug: work assigned beyond launchable grid"
+        # invariant: exactly grid_dim queues, every task assigned into [0, grid_dim) -> every launched
+        # block has a (possibly empty) queue and no task is stranded beyond the launchable grid.
+        assert len(self._queues) == grid_dim, "AMK loader bug: queue count != grid_dim"
         self.last_grid_dim = grid_dim
 
         # ---- 9. zero counters (one launch == one pass) and LAUNCH ------------------------------
