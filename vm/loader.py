@@ -201,6 +201,18 @@ def _normalize_knobs(knobs: dict | None) -> dict:
             if key not in _KNOB_MACRO:
                 raise KeyError(f"unknown AMK GEMV knob {key!r}; valid: {sorted(_KNOB_MACRO)}")
             k[key] = int(val)
+    # Range-guard every knob: an absurd value (e.g. cpa_stages=1000000) would overflow the cp.async
+    # SMEM ring or the build. Fail fast with a clear message here, before any allocation. Bounds are
+    # generous (cover the whole search space); they only catch values that physically cannot build.
+    # Only the knobs that set SMEM/register footprint (the OOM/build risks); bounds are generous (the
+    # whole search space fits), catching only values that physically cannot build. Flags + quant-mode
+    # knobs (cpasync/qc/qcpasync/lb_*) carry no overflow risk and are validated elsewhere.
+    _RANGES = {"cols_per_warp": (1, 16), "kunroll": (1, 64), "gemv_max_k": (0, 65536),
+               "cpa_cols": (1, 16), "cpa_stages": (1, 16), "cpa_vpl": (1, 8)}
+    for _key, (_lo, _hi) in _RANGES.items():
+        if _key in k and not (_lo <= k[_key] <= _hi):
+            raise ValueError(f"AMK knob {_key}={k[_key]} out of the validated range [{_lo}, {_hi}]; "
+                             f"a value outside this can overflow SMEM or fail the build.")
     # launch_bounds is only emitted when BOTH parts are > 0 (else: compiler's own reg alloc)
     if (k["lb_maxthreads"] > 0) != (k["lb_minblocks"] > 0):
         raise ValueError("lb_maxthreads and lb_minblocks must be set together (both >0 or both 0)")

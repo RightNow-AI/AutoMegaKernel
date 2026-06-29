@@ -453,6 +453,15 @@ def from_hf(model: Any, *, n_layers: int | None = None) -> ModelGraph:
     act = getattr(hf, "hidden_act", "silu")
     if act not in ("silu", "swish"):
         unsupported.append(f"hidden_act={act!r} (only SiLU/SwiGLU is modeled)")
+    if int(getattr(hf, "num_local_experts", 0) or 0) > 0 or int(getattr(hf, "num_experts", 0) or 0) > 0:
+        unsupported.append("mixture-of-experts (num_local_experts/num_experts > 0); MoE routing + "
+                           "per-expert FFN are not modeled")
+    if getattr(hf, "kv_lora_rank", None) is not None:
+        unsupported.append("MLA / latent attention (kv_lora_rank set, DeepSeek-style); the dense "
+                           "GQA template does not model compressed-KV attention")
+    if getattr(hf, "head_dim", None) is None and n_heads > 0 and hidden % n_heads != 0:
+        unsupported.append(f"hidden_size={hidden} is not divisible by num_attention_heads={n_heads} "
+                           f"and no explicit head_dim is given (the implicit head_dim would be wrong)")
     rope_theta, rope_unsupported = _resolve_rope(hf)
     if rope_unsupported is not None:
         unsupported.append(rope_unsupported)
