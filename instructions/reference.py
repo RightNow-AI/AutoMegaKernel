@@ -275,6 +275,14 @@ def ref_kv_append(inputs, outputs, params, ctx):
     pos = int(params["pos"])
     new = inputs[0].to(outputs[0].dtype)
     cache = outputs[0]
+    # BATCHED DECODE: cache is [B, max_seq, n_kv_heads, head_dim] (one history per sequence) and the
+    # new k/v is [B, n_kv_heads, head_dim] (roped k) or [B, kv_dim] (flat v); write every sequence's
+    # position `pos` slot at once. Reached only for a batch>1 program (rank-4 cache); the rank-3
+    # single-sequence path below is byte-identical.
+    if cache.dim() == 4:
+        Bsz = cache.shape[0]
+        cache[:, pos].copy_(new.reshape(Bsz, *cache.shape[2:]))
+        return
     # cache layout: [max_seq, n_kv_heads, head_dim]
     cache[pos:pos + new.shape[0]].copy_(new.view(-1, *cache.shape[1:]))
 
@@ -295,6 +303,23 @@ def ref_attention_tile(inputs, outputs, params, ctx):
     n_kv = int(params.get("n_kv_heads", n_heads))
     scale = float(params.get("scale", 1.0 / (head_dim ** 0.5)))
     causal = bool(int(params.get("flags", 0)) & 1)
+
+    # BATCHED DECODE (throughput path): q is [B, n_heads, head_dim] and the caches are
+    # [B, max_seq, n_kv, head_dim] (one independent KV history per sequence). Each of the B queries
+    # is a single token attending to its OWN cached window [kv_start, kv_start+kv_len) -- it is B
+    # independent decode-attentions done in one task. This branch is reached ONLY when the lowerer
+    # emits a batch>1 program (rank-3 q); the rank-2 single-token path below is byte-identical.
+    if q.dim() == 3:
+        Bsz = q.shape[0]
+        rep = n_heads // n_kv
+        kk = k[:, kv_start:kv_start + kv_len].repeat_interleave(rep, dim=2)   # [B,kv_len,n_heads,hd]
+        vv = v[:, kv_start:kv_start + kv_len].repeat_interleave(rep, dim=2)
+        scores = torch.einsum("bhd,bkhd->bhk", q, kk) * scale                # [B,n_heads,kv_len]
+        probs = torch.softmax(scores, dim=-1)
+        out = torch.einsum("bhk,bkhd->bhd", probs, vv)                       # [B,n_heads,head_dim]
+        outputs[0].copy_(out.reshape_as(outputs[0]).to(outputs[0].dtype))
+        _ = Bsz
+        return
 
     k = k[kv_start:kv_start + kv_len]                # [kv_len, n_kv, head_dim]
     v = v[kv_start:kv_start + kv_len]

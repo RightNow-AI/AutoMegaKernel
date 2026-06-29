@@ -120,7 +120,7 @@ class _Lowerer:
     with the matching threshold)."""
 
     def __init__(self, graph: ModelGraph, target: GpuTarget | None, config: ScheduleConfig | None,
-                 pos: int, dtype: DType, quant: Any = None):
+                 pos: int, dtype: DType, quant: Any = None, B: int = 1):
         self.g = graph
         self.cfg = graph.config
         self.config = config
@@ -128,6 +128,13 @@ class _Lowerer:
         self.num_sms = int(target.num_sms) if target is not None else _FALLBACK_NUM_SMS
         self.pos = pos
         self.kv_len = pos + 1
+        # BATCH dimension B: number of independent sequences decoding one token each at this step.
+        # B==1 (default) is the legacy single-token decode path, lowered BYTE-IDENTICALLY to before
+        # (every activation buffer is [1, ..] which equals the old [.., ] shapes, projections emit
+        # GEMV_TILE, the KV cache is rank-3). B>1 is the THROUGHPUT path: activation buffers become
+        # [B, ..], projections emit GEMM_TILE (M=B, one amortized weight read), and attention/KV run
+        # B independent decodes via a [B, max_seq, n_kv, head_dim] cache + a batched ATTENTION_TILE.
+        self.B = int(B)
         self.dtype = dtype
         self.dbytes = max(1, dtype.bits // 8)
         # Optional weight-only quantization metadata (schedule.quantize.QuantMeta). When present,
@@ -209,9 +216,13 @@ class _Lowerer:
     # ---- IO / constant buffers -----------------------------------------------------
     def _ensure_io(self) -> None:
         H = self.cfg.hidden
-        self.buf[TOKEN_NAME] = self._new(TOKEN_NAME, BufferKind.IO_INPUT, (1,), dt=DType.I32)
-        self.buf[POS_NAME] = self._new(POS_NAME, BufferKind.IO_INPUT, (1,), dt=DType.I32)
-        self.buf[RESHAPE_ID_NAME] = self._new(RESHAPE_ID_NAME, BufferKind.IO_INPUT, (1,), dt=DType.I32)
+        # IO inputs carry one entry per sequence: B token ids, B positions (one ROPE angle per
+        # sequence), and the EMBED-reshape gather ids = arange(B) (selects every sequence's row when
+        # reshaping a flat [B, dim] projection into head shape). At B==1 these are all length-1 and
+        # the reshape id is [0] -- byte-identical to the single-token path.
+        self.buf[TOKEN_NAME] = self._new(TOKEN_NAME, BufferKind.IO_INPUT, (self.B,), dt=DType.I32)
+        self.buf[POS_NAME] = self._new(POS_NAME, BufferKind.IO_INPUT, (self.B,), dt=DType.I32)
+        self.buf[RESHAPE_ID_NAME] = self._new(RESHAPE_ID_NAME, BufferKind.IO_INPUT, (self.B,), dt=DType.I32)
         # logits IO_OUTPUT is created when we lower the lm_head node.
         _ = H
 
@@ -255,13 +266,48 @@ class _Lowerer:
             emitted += 1
         return ctr, emitted
 
+    # ---- tiled GEMM (M=B batched projection: ONE amortized weight read over B rows) -----------
+    def _gemm_tiles(self, x: str, ob: int, weight_key: str, K: int, N: int, label: str) -> int:
+        """Emit the column-tiled GEMM tasks for ``out = x @ W.T`` with ``x`` of shape ``[B, K]`` and
+        ``out`` of shape ``[B, N]`` (the THROUGHPUT projection: M=B output rows share one weight
+        read). Mirrors :meth:`_gemv_tiles` exactly but emits ``GEMM_TILE`` with ``M_tile=B``; each
+        tile still writes the disjoint output COLUMN slice ``[n_off, n_off+N_tile)`` for ALL B rows
+        (the device kernel + ref derive M from the output's leading extent). Shares one counter; the
+        consumer ALL-JOINs. fp path only (batched + weight-quant is a later milestone)."""
+        xb = self.buf[x]
+        n_tile = _gemv_n_tile(self.config, N, self.num_sms)
+        n_tiles = (N + n_tile - 1) // n_tile
+        ctr = self._counter(f"{label} ({n_tiles} tiles, M={self.B})")
+        wait = self._waits_for(x)
+        wb = self._weight(weight_key)
+        per_col_bytes = K * self.dbytes
+        emitted = 0
+        for i in range(n_tiles):
+            n_off = i * n_tile
+            this = min(n_tile, N - n_off)
+            if this <= 0:
+                break
+            self.p.add_task(
+                InstructionKind.GEMM_TILE, [xb, wb], [ob], out_counter=ctr, waits=list(wait),
+                params={"M_tile": self.B, "K": K, "N_tile": this, "n_off": n_off},
+                label=f"{label}[t{i}]",
+                # weight bytes are read ONCE per tile and reused across the B rows (the amortization);
+                # flops bill all B rows. (cost-model annotation only.)
+                est_bytes=per_col_bytes * this, est_flops=2 * K * this * self.B)
+            emitted += 1
+        return ctr, emitted
+
     def _tiled_linear(self, x: str, weight_key: str, out: str, K: int, N: int,
                       out_shape: tuple[int, ...], label: str) -> None:
-        """Emit a column-tiled GEMV for ``out = x @ W.T`` (W is [N, K]). All tiles share one
-        counter; the consumer ALL-JOINs on (counter, #tiles). Registers ``out``'s ready edge."""
+        """Emit a column-tiled projection for ``out = x @ W.T`` (W is [N, K]). At B==1 this is the
+        decode GEMV (byte-identical to before); at B>1 it is the batched GEMM (M=B). All tiles share
+        one counter; the consumer ALL-JOINs on (counter, #tiles). Registers ``out``'s ready edge."""
         ob = self._new(out, BufferKind.ACTIVATION, out_shape)
         self.buf[out] = ob
-        ctr, emitted = self._gemv_tiles(x, ob, weight_key, K, N, label)
+        if self.B > 1:
+            ctr, emitted = self._gemm_tiles(x, ob, weight_key, K, N, label)
+        else:
+            ctr, emitted = self._gemv_tiles(x, ob, weight_key, K, N, label)
         self.ready[out] = (ctr, emitted)
 
     # ---- reshape (flat [1, dim] -> head-shaped) via EMBED view_as ------------------
@@ -296,14 +342,16 @@ class _Lowerer:
     def _op_embed(self, n: Node) -> None:
         H = self.cfg.hidden
         out = n.outputs[0]
-        ob = self._new(out, BufferKind.ACTIVATION, (1, H))
+        ob = self._new(out, BufferKind.ACTIVATION, (self.B, H))
         self.buf[out] = ob
         ctr = self._counter("embed")
         table = self._weight(n.weights[0])
+        # EMBED gathers the B token rows (ids = token_id[0:B]) -> [B, H]; at B==1 this is the single
+        # [1, H] embedding row, byte-identical.
         self.p.add_task(
             InstructionKind.EMBED, [self.buf[TOKEN_NAME], table], [ob], out_counter=ctr,
             waits=[], params={"hidden": H}, label=n.name,
-            est_bytes=H * self.dbytes, est_flops=0)
+            est_bytes=self.B * H * self.dbytes, est_flops=0)
         self.ready[out] = (ctr, 1)
 
     # -- rmsnorm --
@@ -311,15 +359,17 @@ class _Lowerer:
         H = int(n.attrs["hidden"])
         x = n.inputs[0]
         out = n.outputs[0]
-        ob = self._new(out, BufferKind.ACTIVATION, (1, H))
+        ob = self._new(out, BufferKind.ACTIVATION, (self.B, H))
         self.buf[out] = ob
         ctr = self._counter(n.name)
         w = self._weight(n.weights[0])
+        # RMSNorm reduces over the LAST dim (hidden) per row, so [B, H] normalizes each sequence
+        # independently (the device kernel already loops M=numel/H rows). [1, H] at B==1.
         self.p.add_task(
             InstructionKind.RMSNORM, [self.buf[x], w], [ob], out_counter=ctr,
             waits=self._waits_for(x),
             params={"eps": float(n.attrs["eps"]), "hidden": H}, label=n.name,
-            est_bytes=H * self.dbytes, est_flops=4 * H)
+            est_bytes=self.B * H * self.dbytes, est_flops=4 * self.B * H)
         self.ready[out] = (ctr, 1)
 
     # -- linear (tiled GEMV) --
@@ -329,14 +379,18 @@ class _Lowerer:
         x = n.inputs[0]
         out = n.outputs[0]
         kind = n.attrs.get("kind", "linear")
-        # lm_head writes the IO_OUTPUT 'logits'; everything else is a flat activation.
+        # lm_head writes the IO_OUTPUT 'logits'; everything else is a flat activation. At B>1 every
+        # projection is a GEMM (M=B); the logits become [B, N] (one row of vocab logits per sequence).
         if kind == "lm_head":
-            ob = self._new(out, BufferKind.IO_OUTPUT, (1, N))
+            ob = self._new(out, BufferKind.IO_OUTPUT, (self.B, N))
             self.buf[out] = ob
-            ctr, emitted = self._gemv_tiles(x, ob, n.weights[0], K, N, n.name)
+            if self.B > 1:
+                ctr, emitted = self._gemm_tiles(x, ob, n.weights[0], K, N, n.name)
+            else:
+                ctr, emitted = self._gemv_tiles(x, ob, n.weights[0], K, N, n.name)
             self.ready[out] = (ctr, emitted)
         else:
-            self._tiled_linear(x, n.weights[0], out, K, N, (1, N), n.name)
+            self._tiled_linear(x, n.weights[0], out, K, N, (self.B, N), n.name)
 
     # -- rope --
     def _op_rope(self, n: Node) -> None:
@@ -344,13 +398,16 @@ class _Lowerer:
         theta = float(n.attrs["theta"])
         which = n.attrs["which"]
         n_h = int(n.attrs["n_heads"])
-        flat = n.inputs[0]            # [1, n_h*head_dim] flat projection
+        flat = n.inputs[0]            # [B, n_h*head_dim] flat projection (B==1 -> [1, n_h*head_dim])
         out = n.outputs[0]
-        # Reshape flat -> head-shaped, then rope in place on the head shape.
+        # Reshape flat -> head-shaped, then rope in place on the head shape. ROPE reads B positions
+        # (pos buffer length B), one angle per sequence; the rank-3 reference broadcasts cos/sin over
+        # the head axis. At B>1 q gains a leading batch axis -> rank-3 [B, n_h, head_dim] for the
+        # batched ATTENTION_TILE; k is [B, n_kv, head_dim] (== [1, n_kv, head_dim] at B==1).
         if which == "q":
-            head_shape = (n_h, head_dim)          # rank-2 for ATTENTION
-        else:                                     # k -> rank-3 [1, n_kv, head_dim] for KV_APPEND
-            head_shape = (1, n_h, head_dim)
+            head_shape = (self.B, n_h, head_dim) if self.B > 1 else (n_h, head_dim)
+        else:                                     # k -> [B, n_kv, head_dim] for KV_APPEND
+            head_shape = (self.B, n_h, head_dim)
         reshaped = f"{out}.hs"
         self._reshape(flat, reshaped, head_shape, head_dim, f"{n.name}.reshape")
         ob = self._new(out, BufferKind.ACTIVATION, head_shape)
@@ -367,9 +424,16 @@ class _Lowerer:
     def _op_kv_append(self, n: Node) -> None:
         n_kv = int(n.attrs["n_kv_heads"])
         head_dim = int(n.attrs["head_dim"])
-        src = n.inputs[0]            # k: roped [1, n_kv, head_dim]; v: flat [1, kv_dim]
+        src = n.inputs[0]            # k: roped [B, n_kv, head_dim]; v: flat [B, kv_dim]
         cache_name = n.outputs[0]
-        cache = self._new(cache_name, BufferKind.KV_CACHE, (self.cfg.max_seq, n_kv, head_dim))
+        # B>1: one independent KV history per sequence -> a [B, max_seq, n_kv, head_dim] cache; every
+        # sequence's slot `pos` is written at once (same decode position across the batch). At B==1
+        # the cache is the legacy rank-3 [max_seq, n_kv, head_dim], byte-identical.
+        if self.B > 1:
+            cache_shape: tuple[int, ...] = (self.B, self.cfg.max_seq, n_kv, head_dim)
+        else:
+            cache_shape = (self.cfg.max_seq, n_kv, head_dim)
+        cache = self._new(cache_name, BufferKind.KV_CACHE, cache_shape)
         self.buf[cache_name] = cache
         ctr = self._counter(n.name)
         # KV_APPEND inputs = [new_kv, cache]; output = cache (in place). It waits on the source's
@@ -377,7 +441,7 @@ class _Lowerer:
         self.p.add_task(
             InstructionKind.KV_APPEND, [self.buf[src], cache], [cache], out_counter=ctr,
             waits=self._waits_for(src), params={"pos": self.pos}, label=n.name,
-            est_bytes=n_kv * head_dim * self.dbytes, est_flops=0)
+            est_bytes=self.B * n_kv * head_dim * self.dbytes, est_flops=0)
         self.ready[cache_name] = (ctr, 1)
 
     # -- attention (flash-decoding: split the KV window across SMs when it is long enough) --
@@ -404,10 +468,16 @@ class _Lowerer:
         _atile = (self.config.tiling.get("attention") if (self.config and self.config.tiling) else None)
         if isinstance(_atile, dict):
             npart = int(_atile.get("n_partitions", 1))
+        # Batched decode (B>1) runs ONE batched ATTENTION_TILE over the [B, max_seq, n_kv, head_dim]
+        # caches (B independent decode-attentions); the split-KV/COMBINE path is single-sequence only.
+        if self.B > 1:
+            npart = 1
         P = 1 if npart <= 1 else max(1, min(_ATTN_PMAX, self.num_sms, npart,
                        (self.kv_len + _ATTN_MIN_KV_PER_SHARD - 1) // _ATTN_MIN_KV_PER_SHARD))
         if P <= 1:
-            ob = self._new(out, BufferKind.ACTIVATION, (1, qd))   # flat via attention's view_as
+            # [B, qd]: q is [B, n_heads, head_dim] (rank-3 -> batched ref path), caches are rank-4.
+            # ([1, qd] / rank-2 q / rank-3 caches at B==1, byte-identical.)
+            ob = self._new(out, BufferKind.ACTIVATION, (self.B, qd))
             self.buf[out] = ob
             ctr = self._counter(n.name)
             self.p.add_task(
@@ -415,8 +485,8 @@ class _Lowerer:
                 out_counter=ctr, waits=waits,
                 params={"head_dim": head_dim, "kv_start": 0, "kv_len": self.kv_len, "scale": scale,
                         "n_heads": n_heads, "n_kv_heads": n_kv}, label=n.name,
-                est_bytes=2 * self.kv_len * n_kv * head_dim * self.dbytes,
-                est_flops=4 * n_heads * head_dim * self.kv_len)
+                est_bytes=self.B * 2 * self.kv_len * n_kv * head_dim * self.dbytes,
+                est_flops=self.B * 4 * n_heads * head_dim * self.kv_len)
             self.ready[out] = (ctr, 1)
             return
         # split-KV: P shards (pinned to distinct SMs) each write a flash partial [n_heads, head_dim+2]
@@ -458,13 +528,14 @@ class _Lowerer:
         inter = int(n.attrs["inter"])
         gate, up = n.inputs
         out = n.outputs[0]
-        ob = self._new(out, BufferKind.ACTIVATION, (1, inter))
+        ob = self._new(out, BufferKind.ACTIVATION, (self.B, inter))
         self.buf[out] = ob
         ctr = self._counter(n.name)
+        # silu(gate)*up is elementwise -> [B, inter] broadcasts over the B rows ([1, inter] at B==1).
         self.p.add_task(
             InstructionKind.SILU_MUL, [self.buf[gate], self.buf[up]], [ob], out_counter=ctr,
             waits=self._waits_for(gate, up), params={}, label=n.name,
-            est_bytes=inter * self.dbytes, est_flops=3 * inter)
+            est_bytes=self.B * inter * self.dbytes, est_flops=3 * self.B * inter)
         self.ready[out] = (ctr, 1)
 
     # -- add (residual) --
@@ -472,19 +543,20 @@ class _Lowerer:
         H = int(n.attrs["hidden"])
         a, b = n.inputs
         out = n.outputs[0]
-        ob = self._new(out, BufferKind.ACTIVATION, (1, H))
+        ob = self._new(out, BufferKind.ACTIVATION, (self.B, H))
         self.buf[out] = ob
         ctr = self._counter(n.name)
+        # residual add is elementwise over [B, H] ([1, H] at B==1).
         self.p.add_task(
             InstructionKind.ADD, [self.buf[a], self.buf[b]], [ob], out_counter=ctr,
             waits=self._waits_for(a, b), params={}, label=n.name,
-            est_bytes=H * self.dbytes, est_flops=H)
+            est_bytes=self.B * H * self.dbytes, est_flops=self.B * H)
         self.ready[out] = (ctr, 1)
 
 
 def lower(graph: ModelGraph, target: GpuTarget | None = None,
           config: ScheduleConfig | None = None, *, pos: int = 0,
-          dtype: DType = DType.F32, quant: Any = None) -> MegakernelProgram:
+          dtype: DType = DType.F32, quant: Any = None, B: int = 1) -> MegakernelProgram:
     """Lower a model graph into a single-decode-step :class:`MegakernelProgram`.
 
     Args:
@@ -501,12 +573,23 @@ def lower(graph: ModelGraph, target: GpuTarget | None = None,
                 (packed weight buffer + fp16 scales [+ zeros]); the caller binds the quantized
                 weights dict (from :func:`schedule.quantize.quantize_weights`). The non-quantized
                 path is byte-identical when ``quant`` is None.
+        B:      batch size = number of independent sequences decoding one token each at ``pos``.
+                ``B=1`` (default) is the legacy single-token decode, lowered BYTE-IDENTICALLY. ``B>1``
+                is the THROUGHPUT path: activation buffers are ``[B, ..]``, projections emit
+                ``GEMM_TILE`` (M=B, one amortized weight read over the B rows), and attention/KV run
+                B independent decodes via a ``[B, max_seq, n_kv, head_dim]`` cache + a batched
+                ``ATTENTION_TILE``. The caller supplies B token ids, B positions, and reshape ids
+                ``arange(B)`` (see :func:`required_inputs`); the result equals B independent B=1
+                decodes. Batched + weight-quant is not yet supported (fp path only).
 
     Returns a program that, after the caller binds ``model.weights_dict()`` and supplies the
     inputs (token id, pos, the constant reshape id), runs in the reference VM and equals eager.
     The result is guaranteed to pass :func:`schedule.ir.validate` (the VM refuses anything else).
     """
-    return _Lowerer(graph, target, config, pos=pos, dtype=dtype, quant=quant).lower()
+    if B > 1 and quant is not None:
+        raise NotImplementedError("batched (B>1) decode + weight quantization is not yet supported; "
+                                  "lower with B=1 for the quantized path.")
+    return _Lowerer(graph, target, config, pos=pos, dtype=dtype, quant=quant, B=B).lower()
 
 
 # ----------------------------------------------------------------------------------------
@@ -518,11 +601,13 @@ def lower_fn(graph: ModelGraph, config: ScheduleConfig, target: GpuTarget) -> Me
     return lower(graph, target=target, config=config, pos=0, dtype=DType.F32)
 
 
-def required_inputs(pos: int = 0) -> dict[str, Any]:
+def required_inputs(pos: int = 0, B: int = 1) -> dict[str, Any]:
     """Document the run() input contract for a lowered decode program: the names the caller must
-    provide to :meth:`vm.reference_vm.ReferenceVM.run`. The constant reshape id is always ``[0]``.
-    (Values are placeholders; the caller fills token_id/pos with real tensors.)"""
-    return {TOKEN_NAME: None, POS_NAME: [pos], RESHAPE_ID_NAME: [0]}
+    provide to :meth:`vm.reference_vm.ReferenceVM.run`. For a batch of ``B`` sequences the reshape
+    ids are ``arange(B)`` (gather each sequence's row) and pos is one position per sequence; at
+    ``B=1`` this is the legacy ``{pos:[pos], reshape:[0]}``. (token_id is a placeholder the caller
+    fills with the B real token ids.)"""
+    return {TOKEN_NAME: None, POS_NAME: [pos] * B, RESHAPE_ID_NAME: list(range(B))}
 
 
 __all__ = ["lower", "lower_fn", "required_inputs", "RESHAPE_ID_NAME", "POS_NAME", "TOKEN_NAME"]

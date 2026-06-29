@@ -1195,6 +1195,23 @@ __device__ AMK_OP_QUAL void amk_inst_kv_append(const amk_device_program& prog,
     const amk_buffer_t& nw    = amk_buf(prog, inst.inputs[0]);
     const amk_buffer_t& cache = amk_buf(prog, inst.outputs[0]);
     const int     pos        = inst.params.pos;
+    /* BATCHED DECODE: cache is [B, max_seq, n_kv, head_dim] (one history per sequence) and the new
+     * k/v is [B, n_kv, head_dim] (roped k) or [B, kv_dim] (flat v), both nw.numel == B*n_kv*head_dim.
+     * Write every sequence's position-`pos` slot. Matches ref_kv_append's rank-4 branch. Reached
+     * only for a batch>1 program (rank-4 cache); the rank-3 single-sequence path below is
+     * byte-identical (same flat copy as before). */
+    if (cache.rank == 4) {
+        const int64_t Bsz      = cache.shape[0];
+        const int64_t kv_elems = cache.shape[2] * cache.shape[3];        /* n_kv*head_dim (1 pos)  */
+        const int64_t seq_str  = cache.shape[1] * kv_elems;              /* per-sequence stride    */
+        for (int64_t b = 0; b < Bsz; ++b) {
+            const int64_t dst = b * seq_str + (int64_t)pos * kv_elems;   /* cache[b, pos, :, :]     */
+            const int64_t src = b * kv_elems;                            /* nw[b] (contiguous)      */
+            for (int64_t j = threadIdx.x; j < kv_elems; j += blockDim.x)
+                amk_store_f(cache, dst + j, amk_load_f(nw, src + j));
+        }
+        return;
+    }
     const int64_t max_seq    = (cache.rank > 0) ? cache.shape[0] : 1;
     const int64_t row_stride = (max_seq > 0) ? (cache.numel / max_seq) : cache.numel;
     const int64_t n          = nw.numel;               /* == new.shape[0]*row_stride for decode */
@@ -1215,9 +1232,78 @@ __device__ AMK_OP_QUAL void amk_inst_kv_append(const amk_device_program& prog,
  * head is processed by the whole block via an online (flash) softmax over the KV window; we use
  * shared memory for the q-vector cache, the running accumulator, and the cross-block reductions.
  * Heads are looped (one block owns the whole instruction, like every other op). */
+#define AMK_ATTN_MAX_HEAD_DIM 512
+
+/* ---- ATTENTION_TILE (BATCHED decode): B independent decode-attentions in one task --------------
+ * q is [B, n_heads, head_dim], the caches are [B, max_seq, n_kv, head_dim] (one KV history per
+ * sequence), out is [B, n_heads*head_dim]. Each of the B queries is a single token attending to its
+ * OWN cached window [kv_start, kv_start+kv_len). Mirrors instructions/reference.py ref_attention_tile
+ * rank-3 branch EXACTLY (same online flash softmax, fp32). It is the single-sequence warp-parallel
+ * kernel wrapped in a batch loop: each WARP still owns a disjoint set of heads, and we REUSE the same
+ * per-warp q_s|acc SMEM slice across the B sequences (so the loader provisions no extra SMEM). One
+ * block barrier at op end. Split-KV PARTIAL_WRITE is single-sequence only; the lowerer never batches
+ * it (P==1 forced for B>1), so this path always writes the normalized output. */
+__device__ AMK_OP_QUAL void amk_inst_attention_tile_batched(const amk_device_program& prog,
+                                                                const amk_instruction_t& inst) {
+    const amk_buffer_t& q   = amk_buf(prog, inst.inputs[0]);   /* [B, n_heads, head_dim]          */
+    const amk_buffer_t& k   = amk_buf(prog, inst.inputs[1]);   /* [B, max_seq, n_kv, head_dim]    */
+    const amk_buffer_t& v   = amk_buf(prog, inst.inputs[2]);
+    const amk_buffer_t& out = amk_buf(prog, inst.outputs[0]);  /* [B, n_heads*head_dim]           */
+    const int   head_dim = inst.params.head_dim;
+    const int   kv_start = inst.params.kv_start;
+    const int   kv_len   = inst.params.kv_len;
+    const int   n_heads  = inst.params.n_heads;
+    const int   n_kv     = inst.params.n_kv_heads;
+    const float scale    = inst.params.scale;
+    const int   rep      = (n_kv > 0) ? (n_heads / n_kv) : 1;
+    const int64_t kv_row_stride = (int64_t)n_kv * head_dim;    /* one kv position's elements      */
+    if (head_dim > AMK_ATTN_MAX_HEAD_DIM) { amk_trap_unimplemented(prog, AMK_OP_ATTENTION_TILE); return; }
+    const int nwarps = (blockDim.x + warpSize - 1) / warpSize;
+    const int lane = threadIdx.x & (warpSize - 1);
+    const int warp = threadIdx.x / warpSize;
+    extern __shared__ float s_dyn[];
+    float* const q_s = s_dyn + (int64_t)warp * 2 * head_dim;   /* this warp's private q_s|acc slice */
+    float* const acc = q_s + head_dim;
+    const int64_t Bsz        = (q.rank > 0) ? q.shape[0] : 1;
+    const int64_t qd         = (int64_t)n_heads * head_dim;    /* q/out row width                 */
+    const int64_t kv_seq_str = (k.rank >= 2 ? k.shape[1] : 1) * kv_row_stride;   /* per-seq cache  */
+    for (int64_t b = 0; b < Bsz; ++b) {
+        const int64_t q_seq  = b * qd;                         /* q[b] base (== out[b] base)       */
+        const int64_t kv_seq = b * kv_seq_str;                 /* this sequence's cache base       */
+        for (int h = warp; h < n_heads; h += nwarps) {
+            const int   kvh    = h / rep;
+            const int64_t q_base   = q_seq + (int64_t)h * head_dim;
+            const int64_t kv_h_off = kv_seq + (int64_t)kv_start * kv_row_stride + (int64_t)kvh * head_dim;
+            for (int d = lane; d < head_dim; d += warpSize) { q_s[d] = amk_load_f(q, q_base + d); acc[d] = 0.f; }
+            float m = -CUDART_INF_F, l = 0.f;
+            for (int j = 0; j < kv_len; ++j) {
+                const int64_t krow = kv_h_off + (int64_t)j * kv_row_stride;
+                float dot = 0.f;
+                for (int d = lane; d < head_dim; d += warpSize) dot += q_s[d] * amk_load_f(k, krow + d);
+                for (int o = warpSize / 2; o > 0; o >>= 1) dot += __shfl_xor_sync(0xffffffffu, dot, o);
+                const float sj = dot * scale;
+                const float m_new = fmaxf(m, sj);
+                const float corr  = __expf(m - m_new);
+                const float p     = __expf(sj - m_new);
+                for (int d = lane; d < head_dim; d += warpSize)
+                    acc[d] = acc[d] * corr + p * amk_load_f(v, krow + d);   /* v shares k's layout  */
+                l = l * corr + p;
+                m = m_new;
+            }
+            const float inv_l = 1.0f / l;                      /* out[b, h, d] flat == q_base + d  */
+            for (int d = lane; d < head_dim; d += warpSize) amk_store_f(out, q_base + d, acc[d] * inv_l);
+        }
+    }
+    __syncthreads();   /* one barrier at op end: all warps finish `out` before the scheduler signals */
+}
+
 __device__ AMK_OP_QUAL void amk_inst_attention_tile(const amk_device_program& prog,
                                                         const amk_instruction_t& inst) {
     const amk_buffer_t& q   = amk_buf(prog, inst.inputs[0]);
+    /* BATCHED decode dispatch: a rank-3 q (== [B, n_heads, head_dim]) means B independent
+     * decode-attentions over rank-4 caches; hand off to the batched kernel. The rank-2 single-token
+     * path below is byte-identical. */
+    if (q.rank == 3) { amk_inst_attention_tile_batched(prog, inst); return; }
     const amk_buffer_t& k   = amk_buf(prog, inst.inputs[1]);
     const amk_buffer_t& v   = amk_buf(prog, inst.inputs[2]);
     const amk_buffer_t& out = amk_buf(prog, inst.outputs[0]);
@@ -1235,7 +1321,6 @@ __device__ AMK_OP_QUAL void amk_inst_attention_tile(const amk_device_program& pr
      * output; ATTENTION_COMBINE then merges the P shards. (flags bit0 = causal is unused at decode:
      * a single query attends all cached keys.) */
     const bool partial = (inst.params.flags & 0x2) != 0;
-    #define AMK_ATTN_MAX_HEAD_DIM 512
     if (head_dim > AMK_ATTN_MAX_HEAD_DIM) {
         amk_trap_unimplemented(prog, AMK_OP_ATTENTION_TILE);
         return;
