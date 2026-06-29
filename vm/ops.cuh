@@ -1028,6 +1028,78 @@ __device__ AMK_OP_QUAL void amk_inst_gemv_tile(const amk_device_program& prog,
 }
 #endif /* AMK_GEMV_SCALAR */
 
+/* ---- GEMM_TILE: out[..., n_off:n_off+N_tile] = x @ W[n_off:n_off+N_tile, :].T  (batched, M>=1) --
+ * The THROUGHPUT-mode projection (the keystone of batched decode): x is [M,K], W is [N,K] (torch
+ * nn.Linear layout), out is [M,N]. This task writes the output COLUMN slice [n_off, n_off+N_tile)
+ * for ALL M rows, exactly instructions/reference.py ref_gemm_tile (_gemv_gemm):
+ *     w_tile   = W[n_off:n_off+N_tile, :]      # [N_tile, K]
+ *     out_tile = x @ w_tile.T                  # [M, N_tile]
+ *     out[..., n_off:n_off+N_tile] = out_tile  # (+ optional bias[n_off:n_off+N_tile])
+ * i.e. out[m, n] = sum_k x[m,k] * W[n,k]. It is the decode GEMV (M==1) GENERALIZED to M output
+ * rows: we reuse the GEMV's coalesced warp-per-column dot (one warp owns output column n == weight
+ * row n; its 32 lanes stride the contiguous K run of W[n,:], each lane fp32-accumulates, a
+ * warp-shuffle tree reduces to lane 0) and OUTER-LOOP over the M rows. fp32 accumulate (like the
+ * GEMV and the reference's "accumulate in fp32, cast to output dtype" rule) keeps bf16/fp16
+ * faithful; the per-lane-then-shuffle reduction order is IDENTICAL to the GEMV, which is
+ * correctness-gated against this same reference, so the GEMM clears the same frozen tolerance.
+ *
+ * M (output rows) is read from the OUTPUT buffer's leading extent (== x.shape[0]), exactly the
+ * reference, which computes EVERY row of x for this column tile (it never subsets rows by
+ * m_off/M_tile). In a well-formed task this equals params.M_tile.
+ *
+ * CORRECTNESS-FIRST (throughput milestone 1): a clean, obviously-correct tiled GEMM. The throughput
+ * WIN proper - reading each weight element ONCE and reusing it across all M rows (a register
+ * row-tile), plus vectorized float4 / bf16x8 loads and an SMEM x-cache - is a LATER perf milestone;
+ * this version reads operands straight from (L2-resident) global so it needs NO extra shared memory
+ * (a GEMM-only program is not provisioned any) and is trivially correct for any dtype/stride. The
+ * weight read IS coalesced (adjacent lanes read adjacent K). ADDITIVE: the decode GEMV path above is
+ * untouched and byte-identical; this is a separate opcode reached only by AMK_OP_GEMM_TILE. */
+__device__ AMK_OP_QUAL void amk_inst_gemm_tile(const amk_device_program& prog,
+                                                   const amk_instruction_t& inst) {
+    const amk_buffer_t& x   = amk_buf(prog, inst.inputs[0]);   /* [M,K] activations */
+    const amk_buffer_t& W   = amk_buf(prog, inst.inputs[1]);   /* [N,K] torch-Linear weight */
+    const amk_buffer_t& out = amk_buf(prog, inst.outputs[0]);  /* [M,N] */
+    const int K        = inst.params.K;
+    const int N_tile   = inst.params.N_tile;
+    const int n_off    = inst.params.n_off;
+    const bool has_bias = (inst.n_inputs > 2);
+
+    const int64_t N_full = out.shape[1];                       /* full output width */
+    const int64_t M      = (N_full > 0) ? (out.numel / N_full) : 1;
+
+    const int lane   = threadIdx.x & (warpSize - 1);
+    const int warp   = threadIdx.x / warpSize;
+    const int nwarps = (blockDim.x + warpSize - 1) / warpSize;
+
+    const int64_t xks = x.stride[x.rank - 1];                  /* x element stride along K */
+    const int64_t wks = W.stride[W.rank - 1];                  /* W element stride along K */
+    const int64_t wrs = W.stride[0];                           /* W stride between rows (== K) */
+
+    for (int64_t m = 0; m < M; ++m) {
+        const int64_t x_row = m * x.stride[0];
+        /* one warp per output column (= weight row); strided so every warp stays busy. */
+        for (int t = warp; t < N_tile; t += nwarps) {
+            const int n = n_off + t;
+            const int64_t w_row = (int64_t)n * wrs;
+            float acc = 0.f;
+            /* coalesced K reduction: adjacent lanes touch adjacent K elements of x and W[n,:]. */
+            for (int k = lane; k < K; k += warpSize) {
+                acc += amk_load_f(x, x_row + (int64_t)k * xks)
+                     * amk_load_f(W, w_row + (int64_t)k * wks);
+            }
+            /* warp-shuffle reduce the per-lane K-partials to lane 0 (fp32) */
+            #pragma unroll
+            for (int o = warpSize / 2; o > 0; o >>= 1)
+                acc += __shfl_down_sync(0xffffffffu, acc, o);
+            if (lane == 0) {
+                if (has_bias)                                  /* bias[n] over the column tile */
+                    acc += amk_load_f(amk_buf(prog, inst.inputs[2]), n);
+                amk_store_f(out, m * out.stride[0] + (int64_t)n * out.stride[1], acc);
+            }
+        }
+    }
+}
+
 /* ---- SILU_MUL (SwiGLU): out = silu(gate) * up = gate*sigmoid(gate) * up ----------------------
  * inputs = [gate, up]; fp32 math then cast. */
 __device__ AMK_OP_QUAL void amk_inst_silu_mul(const amk_device_program& prog,
@@ -1347,6 +1419,7 @@ __device__ __forceinline__ void amk_dispatch(const amk_device_program& prog,
         case AMK_OP_EMBED:          amk_inst_embed(prog, inst);          break;
         case AMK_OP_RMSNORM:        amk_inst_rmsnorm(prog, inst);        break;
         case AMK_OP_GEMV_TILE:      amk_inst_gemv_tile(prog, inst);      break;
+        case AMK_OP_GEMM_TILE:      amk_inst_gemm_tile(prog, inst);      break;
         case AMK_OP_ROPE:           amk_inst_rope(prog, inst);           break;
         case AMK_OP_ATTENTION_TILE: amk_inst_attention_tile(prog, inst); break;
         case AMK_OP_ATTENTION_COMBINE: amk_inst_attention_combine(prog, inst); break;
