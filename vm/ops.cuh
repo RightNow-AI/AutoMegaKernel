@@ -1047,13 +1047,95 @@ __device__ AMK_OP_QUAL void amk_inst_gemv_tile(const amk_device_program& prog,
  * reference, which computes EVERY row of x for this column tile (it never subsets rows by
  * m_off/M_tile). In a well-formed task this equals params.M_tile.
  *
- * CORRECTNESS-FIRST (throughput milestone 1): a clean, obviously-correct tiled GEMM. The throughput
- * WIN proper - reading each weight element ONCE and reusing it across all M rows (a register
- * row-tile), plus vectorized float4 / bf16x8 loads and an SMEM x-cache - is a LATER perf milestone;
- * this version reads operands straight from (L2-resident) global so it needs NO extra shared memory
- * (a GEMM-only program is not provisioned any) and is trivially correct for any dtype/stride. The
- * weight read IS coalesced (adjacent lanes read adjacent K). ADDITIVE: the decode GEMV path above is
- * untouched and byte-identical; this is a separate opcode reached only by AMK_OP_GEMM_TILE. */
+ * THROUGHPUT PAYOFF (milestone 4): the weight read is AMORTIZED over the M=B output rows. One warp
+ * owns output column n (= weight row n) and keeps a REGISTER ROW-TILE of up to AMK_GEMM_MMAX
+ * accumulators; each weight element/vector is loaded EXACTLY ONCE and FMA'd into ALL mt row
+ * accumulators (vs the prior version that re-read the weight per row -> B reads). Weight loads are
+ * vectorized (float4 == 4 fp32 / 8 bf16-fp16) on the contiguous fast path; x[m,:] is read from the
+ * (small, L2-resident) activation. So batched decode reads each weight ONCE for B tokens instead of
+ * B times -> the batch-1 bandwidth disadvantage finally inverts. fp32 accumulate; the per-lane
+ * float4 order matches amk_gemv_row_dot_* (gated vs the same reference), the scalar fallback is
+ * bit-identical to the prior GEMM. ADDITIVE: the decode GEMV path above is untouched and
+ * byte-identical; this is a separate opcode reached only by AMK_OP_GEMM_TILE. */
+/* ---- GEMM ROW-TILE knob + helpers (the THROUGHPUT amortization) ------------------------------
+ * AMK_GEMM_MMAX is the compile-time register row-tile width: how many output rows (decode batch B)
+ * one warp accumulates per single weight read. The decode batch B<=MMAX is computed in ONE block
+ * (each weight element read EXACTLY ONCE, reused across all B rows); a larger M is processed in
+ * ceil(M/MMAX) row-blocks (weight re-read per block). 16 covers B<=16 in one pass. */
+#ifndef AMK_GEMM_MMAX
+#define AMK_GEMM_MMAX 16
+#endif
+
+/* One output column (= weight row n): load each weight VECTOR (float4 == 4 fp32 / 8 bf16-fp16) ONCE
+ * and FMA it into ALL `mt` row accumulators against the matching x[m, kb..) vector. x[m,:] is read
+ * from (L2-resident) global; the weight (the dominant HBM traffic) is read once and AMORTIZED over
+ * the mt rows. fp32 accumulate; the per-lane float4 reduction order is IDENTICAL to
+ * amk_gemv_row_dot_* (correctness-gated vs the same reference), so the GEMM clears the same frozen
+ * tolerance. Fast path requires K % VEC == 0 + unit K-stride (so every weight/x row is 16B-aligned);
+ * a ragged/strided GEMM takes the scalar amortized fallback below (bit-identical to the old GEMM). */
+template <int MT>
+__device__ __forceinline__ void amk_gemm_rowtile_f32(const float* __restrict__ x0, int64_t xrs,
+                                                      const float* __restrict__ wrow,
+                                                      int K, int lane, int mt, float acc[MT]) {
+    #pragma unroll
+    for (int m = 0; m < MT; ++m) acc[m] = 0.f;
+    const int Kv = K / 4;
+    const float4* __restrict__ w4 = (const float4*)wrow;
+    for (int kv = lane; kv < Kv; kv += warpSize) {
+        const float4 wv = w4[kv];                              /* ONE weight vector, reused over mt rows */
+        #pragma unroll
+        for (int m = 0; m < MT; ++m) {
+            if (m >= mt) break;
+            const float4 xv = ((const float4*)(x0 + (int64_t)m * xrs))[kv];
+            acc[m] += xv.x * wv.x + xv.y * wv.y + xv.z * wv.z + xv.w * wv.w;
+        }
+    }
+}
+
+template <int MT>
+__device__ __forceinline__ void amk_gemm_rowtile_bf16(const __nv_bfloat16* __restrict__ x0, int64_t xrs,
+                                                       const __nv_bfloat16* __restrict__ wrow,
+                                                       int K, int lane, int mt, float acc[MT]) {
+    #pragma unroll
+    for (int m = 0; m < MT; ++m) acc[m] = 0.f;
+    const int Kv = K / 8;                                      /* 8 bf16 == 16 bytes == float4 */
+    const float4* __restrict__ w4 = (const float4*)wrow;
+    for (int kv = lane; kv < Kv; kv += warpSize) {
+        const float4 wraw = w4[kv];
+        const __nv_bfloat16* wh = (const __nv_bfloat16*)&wraw;
+        #pragma unroll
+        for (int m = 0; m < MT; ++m) {
+            if (m >= mt) break;
+            const float4 xraw = ((const float4*)(x0 + (int64_t)m * xrs))[kv];
+            const __nv_bfloat16* xh = (const __nv_bfloat16*)&xraw;
+            #pragma unroll
+            for (int e = 0; e < 8; ++e) acc[m] += __bfloat162float(xh[e]) * __bfloat162float(wh[e]);
+        }
+    }
+}
+
+template <int MT>
+__device__ __forceinline__ void amk_gemm_rowtile_f16(const __half* __restrict__ x0, int64_t xrs,
+                                                      const __half* __restrict__ wrow,
+                                                      int K, int lane, int mt, float acc[MT]) {
+    #pragma unroll
+    for (int m = 0; m < MT; ++m) acc[m] = 0.f;
+    const int Kv = K / 8;
+    const float4* __restrict__ w4 = (const float4*)wrow;
+    for (int kv = lane; kv < Kv; kv += warpSize) {
+        const float4 wraw = w4[kv];
+        const __half* wh = (const __half*)&wraw;
+        #pragma unroll
+        for (int m = 0; m < MT; ++m) {
+            if (m >= mt) break;
+            const float4 xraw = ((const float4*)(x0 + (int64_t)m * xrs))[kv];
+            const __half* xh = (const __half*)&xraw;
+            #pragma unroll
+            for (int e = 0; e < 8; ++e) acc[m] += __half2float(xh[e]) * __half2float(wh[e]);
+        }
+    }
+}
+
 __device__ AMK_OP_QUAL void amk_inst_gemm_tile(const amk_device_program& prog,
                                                    const amk_instruction_t& inst) {
     const amk_buffer_t& x   = amk_buf(prog, inst.inputs[0]);   /* [M,K] activations */
@@ -1074,27 +1156,69 @@ __device__ AMK_OP_QUAL void amk_inst_gemm_tile(const amk_device_program& prog,
     const int64_t xks = x.stride[x.rank - 1];                  /* x element stride along K */
     const int64_t wks = W.stride[W.rank - 1];                  /* W element stride along K */
     const int64_t wrs = W.stride[0];                           /* W stride between rows (== K) */
+    const int64_t xrs = x.stride[0];                           /* x stride between rows (== K)  */
 
-    for (int64_t m = 0; m < M; ++m) {
-        const int64_t x_row = m * x.stride[0];
-        /* one warp per output column (= weight row); strided so every warp stays busy. */
+    /* VECTORIZED fast path: both operands unit-strided on K and K a multiple of the 16-byte vector
+     * width (4 fp32 / 8 half) -> every weight AND x row is 16-byte aligned, so float4 loads are safe.
+     * Otherwise the scalar amortized fallback (bit-identical accumulation order to the prior GEMM). */
+    const int VEC = (W.dtype == AMK_F32) ? 4 : 8;
+    const bool fast = (xks == 1) && (wks == 1) && ((K % VEC) == 0);
+
+    /* REGISTER ROW-TILE: process the M output rows in blocks of <= AMK_GEMM_MMAX. Within a block the
+     * warp owns output column n (= weight row n); each weight element is loaded ONCE and FMA'd into
+     * the block's mt row accumulators (acc[]), so the weight read is amortized over the mt rows. */
+    for (int64_t m0 = 0; m0 < M; m0 += AMK_GEMM_MMAX) {
+        const int mt = (int)((M - m0 < AMK_GEMM_MMAX) ? (M - m0) : (int64_t)AMK_GEMM_MMAX);
         for (int t = warp; t < N_tile; t += nwarps) {
             const int n = n_off + t;
             const int64_t w_row = (int64_t)n * wrs;
-            float acc = 0.f;
-            /* coalesced K reduction: adjacent lanes touch adjacent K elements of x and W[n,:]. */
-            for (int k = lane; k < K; k += warpSize) {
-                acc += amk_load_f(x, x_row + (int64_t)k * xks)
-                     * amk_load_f(W, w_row + (int64_t)k * wks);
+            float acc[AMK_GEMM_MMAX];
+            if (fast) {
+                const int64_t x0 = m0 * xrs;                   /* element offset of row m0 (xks==1) */
+                switch (W.dtype) {
+                    case AMK_F16:
+                        amk_gemm_rowtile_f16<AMK_GEMM_MMAX>(
+                            (const __half*)x.ptr + x0, xrs, (const __half*)W.ptr + w_row, K, lane, mt, acc);
+                        break;
+                    case AMK_BF16:
+                        amk_gemm_rowtile_bf16<AMK_GEMM_MMAX>(
+                            (const __nv_bfloat16*)x.ptr + x0, xrs, (const __nv_bfloat16*)W.ptr + w_row,
+                            K, lane, mt, acc);
+                        break;
+                    case AMK_F32:
+                    default:
+                        amk_gemm_rowtile_f32<AMK_GEMM_MMAX>(
+                            (const float*)x.ptr + x0, xrs, (const float*)W.ptr + w_row, K, lane, mt, acc);
+                        break;
+                }
+            } else {
+                /* scalar amortized fallback: weight read ONCE per (n,k), FMA'd into all mt rows; the
+                 * per-lane stride-warpSize accumulation order is identical to the prior correctness
+                 * GEMM, so this path is bit-identical to it (ragged K / strided operands). */
+                #pragma unroll
+                for (int m = 0; m < AMK_GEMM_MMAX; ++m) acc[m] = 0.f;
+                for (int k = lane; k < K; k += warpSize) {
+                    const float w = amk_load_f(W, w_row + (int64_t)k * wks);
+                    #pragma unroll
+                    for (int m = 0; m < AMK_GEMM_MMAX; ++m) {
+                        if (m >= mt) break;
+                        acc[m] += amk_load_f(x, (m0 + m) * xrs + (int64_t)k * xks) * w;
+                    }
+                }
             }
-            /* warp-shuffle reduce the per-lane K-partials to lane 0 (fp32) */
+            /* warp-shuffle reduce each row's K-partials to lane 0 (fp32) and store out[m0+m, n] */
             #pragma unroll
-            for (int o = warpSize / 2; o > 0; o >>= 1)
-                acc += __shfl_down_sync(0xffffffffu, acc, o);
-            if (lane == 0) {
-                if (has_bias)                                  /* bias[n] over the column tile */
-                    acc += amk_load_f(amk_buf(prog, inst.inputs[2]), n);
-                amk_store_f(out, m * out.stride[0] + (int64_t)n * out.stride[1], acc);
+            for (int m = 0; m < AMK_GEMM_MMAX; ++m) {
+                if (m >= mt) break;
+                float a = acc[m];
+                #pragma unroll
+                for (int o = warpSize / 2; o > 0; o >>= 1)
+                    a += __shfl_down_sync(0xffffffffu, a, o);
+                if (lane == 0) {
+                    if (has_bias)                              /* bias[n] over the column tile */
+                        a += amk_load_f(amk_buf(prog, inst.inputs[2]), n);
+                    amk_store_f(out, (m0 + m) * out.stride[0] + (int64_t)n * out.stride[1], a);
+                }
             }
         }
     }
