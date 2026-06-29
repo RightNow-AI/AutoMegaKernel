@@ -145,7 +145,7 @@ def _model_weights(model) -> dict:
     the from_hf importer uses as buffer.source). This lets the measured autoresearch loop run on HF
     checkpoints, not only the toy."""
     if hasattr(model, "weights_dict"):
-        return _model_weights(model)
+        return model.weights_dict()
     return dict(model.state_dict())
 
 
