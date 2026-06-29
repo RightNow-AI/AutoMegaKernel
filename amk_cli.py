@@ -1,6 +1,12 @@
 """
 AMK command-line entry point.
 
+THE UNIFIED AGENT HARNESS - one command, any HuggingFace model: import -> generate a
+correctness-gated megakernel -> let the agent (Forge, or the builtin search) optimize it -> report.
+Everything below is a component of this one flow.
+
+    uv run python amk_cli.py optimize <hf-model> --gpu <arch>    # the whole flywheel, any model
+
     uv run python amk_cli.py compile toy --gpu rtx5090 --regime single-stream
     uv run python amk_cli.py doctor          # environment + GPU + toolchain check
     uv run python amk_cli.py verify          # run the VM correctness proofs
@@ -281,12 +287,69 @@ def _generate(rest: list[str]) -> int:
     return 0
 
 
+def _optimize(rest: list[str]) -> int:
+    """THE UNIFIED AGENT HARNESS. One command, any HF model: import -> generate a correctness-gated
+    megakernel -> let the agent (Forge if installed, else AMK's builtin search) optimize it -> report.
+    Everything else (compile/loop/eval/generate/autoresearch) is a component of this one flow."""
+    import argparse
+    import autoresearch as _ar
+    ap = argparse.ArgumentParser(
+        prog="amk optimize",
+        description="Unified agent harness: import any HF Llama-family model, generate a correct "
+                    "megakernel, agent-optimize it (correctness-gated), and report - one command.")
+    ap.add_argument("model", help="'toy' / 'toy-2L' or any HuggingFace Llama-family model id")
+    ap.add_argument("--gpu", default="rtx5090")
+    ap.add_argument("--iters", type=int, default=None, help="optimize iterations (default 20)")
+    ap.add_argument("--minutes", type=float, default=None, help="wall-clock budget (sleep-on-it mode)")
+    ap.add_argument("--device", default="auto", choices=["auto", "cuda", "cpu"],
+                    help="cuda/auto => measured GPU latency (correctness-gated); cpu => fast analytic")
+    ap.add_argument("--cold", action="store_true", help="ignore the flywheel prior (pure exploration)")
+    ap.add_argument("--seed", type=int, default=0)
+    args = ap.parse_args(rest)
+
+    # THE AGENT: the private Forge proposer drives candidate generation when installed (the moat);
+    # otherwise AMK's builtin search. Either way every candidate flows through the SAME public gate
+    # (lower -> validate -> reference-oracle -> measured keep/revert), so the result is always correct.
+    proposer, agent_name = None, "builtin search"
+    try:
+        from amk_forge import ForgeProposer
+        proposer, agent_name = ForgeProposer(), "Forge agent"
+    except Exception:
+        pass
+
+    print(f"AMK optimize: {args.model} on {args.gpu}  (agent: {agent_name})", file=sys.stderr)
+    out = _ar.autoresearch(
+        args.model, args.gpu, iters=args.iters, minutes=args.minutes, device=args.device,
+        cold=args.cold, seed=args.seed, proposer=proposer, verbose=True)
+    dev = out["device"]
+    measured = (dev == "cuda")   # analytic (cpu) searches the cost model; it does not MEASURE correctness
+    found = out["best_us"] is not None
+    correct = (out["n_correct"] > 0) if measured else None
+    ok = found and (correct is not False)
+    print(json.dumps({
+        "model": out["model"], "gpu": out["gpu"], "device": dev, "agent": agent_name,
+        "generated": "megakernel" if found else "FAILED (no valid config found)",
+        "baseline_us": out["baseline_us"], "optimized_us": out["best_us"],
+        "speedup_vs_baseline": out["speedup_vs_baseline"],
+        "pct_of_roofline": out["best_pct_roofline"],
+        "correct": correct,
+        "correctness": ("measured bit-exact vs eager HF (oracle-gated)" if measured else
+                        "cost-model search over validated configs; numerical correctness gated on GPU build"),
+        "iters_run": out["iters_run"], "iters_to_best": out["iters_to_best"],
+        "n_kept": out["n_kept"], "n_correct": out["n_correct"], "n_rejected": out["n_rejected"],
+        "vs_vllm": "run `modal run modal_app.py::bench_suite --gpu <X>` for the AMK-vs-vLLM scoreboard",
+    }, indent=2))
+    return 0 if ok else 1
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv:
         print(__doc__)
         return 0
     cmd, rest = argv[0], argv[1:]
+    if cmd == "optimize":
+        return _optimize(rest)
     if cmd == "compile":
         import compile as _c
         _c.main(rest)
@@ -312,7 +375,7 @@ def main(argv=None) -> int:
     if cmd in ("-h", "--help", "help"):
         print(__doc__)
         return 0
-    print(f"unknown command {cmd!r}. Try: compile | doctor | verify | corpus | "
+    print(f"unknown command {cmd!r}. Try: optimize | compile | doctor | verify | corpus | "
           f"propose | eval | loop | tune-instruction | autoresearch | generate")
     return 2
 
