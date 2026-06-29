@@ -86,7 +86,7 @@ def default_config(target: GpuTarget | None = None) -> ScheduleConfig:
     """The neutral starting point: the config a non-searching compiler would emit. Search must
     never return something predicted *worse* than this (the acceptance contract)."""
     return ScheduleConfig(
-        tiling={"gemv": {"N_tile": 256}, "attention": {"kv_block": 128}},
+        tiling={"gemv": {"N_tile": 64}, "attention": {"kv_block": 128}},
         fusion_grouping=[],
         sm_assignment="load_balance",
         pipelining_depth=2,
