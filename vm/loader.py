@@ -174,12 +174,13 @@ _KNOB_MACRO = {
     "cpa_vpl":       "AMK_GEMV_CPA_VPL",
     "qc":            "AMK_QGEMV_COLS",   # quantized (int4/int8) GEMV output columns per warp
     "qcpasync":      "AMK_QGEMV_CPASYNC",  # int8 quant GEMV cp.async ring (sm_80+; 0 -> synchronous path)
+    "gemm_wmma":     "AMK_GEMM_WMMA",  # tensor-core (WMMA) batched GEMM (M>1; bf16/f16; sm_80+; throughput)
 }
 # cp.async is the production decode path (latency-hiding double-buffer); defaults here mirror the
 # ops.cuh #defines (CPC=4, STAGES=3, VPL=2) and fit the megakernel SMEM budget at 2 blocks/SM.
 _KNOB_DEFAULTS = {"cols_per_warp": 1, "kunroll": 1, "lb_maxthreads": 0, "lb_minblocks": 0,
                   "gemv_max_k": 0, "cpasync": 1, "cpa_cols": 2, "cpa_stages": 4, "cpa_vpl": 1,
-                  "qc": 4, "qcpasync": 0}
+                  "qc": 4, "qcpasync": 0, "gemm_wmma": 0}
 
 
 def _normalize_knobs(knobs: dict | None) -> dict:
@@ -223,7 +224,7 @@ def _knob_suffix(knobs: dict) -> str:
     """Stable, filesystem-safe variant suffix from non-default knobs (empty for the default set)."""
     parts = [f"{k}{knobs[k]}" for k in
              ("cols_per_warp", "kunroll", "lb_maxthreads", "lb_minblocks", "gemv_max_k",
-              "cpasync", "cpa_cols", "cpa_stages", "cpa_vpl", "qc", "qcpasync")
+              "cpasync", "cpa_cols", "cpa_stages", "cpa_vpl", "qc", "qcpasync", "gemm_wmma")
              if knobs[k] != _KNOB_DEFAULTS[k]]
     return ("_" + "_".join(parts)) if parts else ""
 
@@ -272,6 +273,21 @@ def _qgemv_cpasync_smem(knobs: dict, program, threads_per_block: int) -> int:
     x_floats = (min(max_k, QGEMV_SMEM_MAX_K) + 3) & ~3
     ring_bytes = nwarps * STAGES * CPC * (VPL * WARP * 16)
     return x_floats * 4 + ring_bytes
+
+
+def _gemm_wmma_smem(knobs: dict, program, threads_per_block: int) -> int:
+    """Dynamic SMEM bytes the tensor-core (WMMA) GEMM needs: per warp a 16x16 A stage + 16x16 B stage
+    (bf16/f16, 2 bytes each) + a 16x16 fp32 C scratch = 256*2 + 256*2 + 256*4 = 2048 bytes. Returns 0
+    when gemm_wmma is off or the program has no fp (non-quant) GEMM_TILE task."""
+    if not knobs.get("gemm_wmma"):
+        return 0
+    has_fp_gemm = any(int(t.op) == int(InstructionKind.GEMM_TILE) and
+                      int(t.params.get("qdtype", 0)) == 0 for t in program.tasks)
+    if not has_fp_gemm:
+        return 0
+    WARP = 32
+    nwarps = (threads_per_block + WARP - 1) // WARP
+    return nwarps * 2048
 
 
 def _build_extension(gemv_scalar: bool = False, knobs: dict | None = None,
@@ -348,6 +364,10 @@ def _build_extension(gemv_scalar: bool = False, knobs: dict | None = None,
         nvcc_flags.append(f"-DAMK_GEMV_CPASYNC={knobs['cpasync']}")
     if knobs.get("qcpasync") and cap[0] >= 8:
         nvcc_flags.append(f"-DAMK_QGEMV_CPASYNC={knobs['qcpasync']}")
+    # tensor-core (WMMA) batched GEMM (throughput; M>1, bf16/f16). Off by default so B=1 decode builds
+    # are byte-identical and the GEMV decode cubin is untouched; the kernel #if also guards sm_80+.
+    if knobs.get("gemm_wmma") and cap[0] >= 8:
+        nvcc_flags.append(f"-DAMK_GEMM_WMMA={knobs['gemm_wmma']}")
     if knobs["lb_maxthreads"] > 0 and knobs["lb_minblocks"] > 0:
         nvcc_flags.append(f"-DAMK_LB_MAXTHREADS={knobs['lb_maxthreads']}")
         nvcc_flags.append(f"-DAMK_LB_MINBLOCKS={knobs['lb_minblocks']}")
@@ -495,6 +515,13 @@ class MegakernelVM:
         if self.knobs.get("qcpasync") and cap0 >= 8:
             self._qgemv_cpasync_bytes = _qgemv_cpasync_smem(self.knobs, program, self.threads_per_block)
             self.dyn_smem_bytes = max(self.dyn_smem_bytes, self._qgemv_cpasync_bytes)
+
+        # tensor-core (WMMA) GEMM staging SMEM (opt-in via knob 'gemm_wmma', sm_80+, bf16/f16): per-warp
+        # A+B+C tiles. Becomes the dyn-smem max for batched (M>1) decode when on.
+        self._gemm_wmma_bytes = 0
+        if self.knobs.get("gemm_wmma") and cap0 >= 8:
+            self._gemm_wmma_bytes = _gemm_wmma_smem(self.knobs, program, self.threads_per_block)
+            self.dyn_smem_bytes = max(self.dyn_smem_bytes, self._gemm_wmma_bytes)
 
         # opt-in SMEM cap guard (abi.h: <= per-block opt-in, NOT per-sm)
         if program.target and self.dyn_smem_bytes > program.target.smem_bytes_per_block_optin:

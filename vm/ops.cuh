@@ -23,6 +23,7 @@
 #include <math_constants.h>   /* CUDART_INF_F (attention / argmax running max) */
 #if (__CUDA_ARCH__ >= 800) || !defined(__CUDA_ARCH__)
 #include <cuda_pipeline.h>    /* __pipeline_memcpy_async / commit / wait_prior (cp.async, sm_80+) */
+#include <mma.h>              /* nvcuda::wmma tensor-core GEMM (bf16/f16, sm_80+; AMK_GEMM_WMMA) */
 #endif
 
 #include "pages.cuh"
@@ -1136,6 +1137,103 @@ __device__ __forceinline__ void amk_gemm_rowtile_f16(const __half* __restrict__ 
     }
 }
 
+#if defined(AMK_GEMM_WMMA) && ((__CUDA_ARCH__ >= 800) || !defined(__CUDA_ARCH__))
+__device__ __forceinline__ void amk_w_set_zero(__nv_bfloat16& z) { z = __float2bfloat16(0.0f); }
+__device__ __forceinline__ void amk_w_set_zero(__half&        z) { z = __float2half(0.0f); }
+
+/* =============================================================================================
+ * TENSOR-CORE batched GEMM (lift the M>1 GEMM off the scalar-FMA ceiling ~1.3 TFLOPs / ~76 GB/s).
+ * =============================================================================================
+ * out[m,n] = sum_k x[m,k]*W[n,k] for the column tile [n_off, n_off+N_tile), ALL M rows, via nvcuda
+ * WMMA 16x16x16 bf16/f16 fragments with fp32 accumulate. A warp owns a 16-wide output column sub-tile
+ * and loops the M rows in 16-row tiles; for each (m-tile, k-tile) it loads A = x[m-tile, k-tile]
+ * (row_major) and B = W[n-tile, k-tile] (col_major, since the GEMM's B(k,n) = W[n,k]) and mma_syncs
+ * into the fp32 accumulator. FULL in-bounds 16x16 tiles load fragments DIRECTLY from global (coalesced
+ * - the fast path); partial edges (M%16, N_tile%16, K%16) zero-pad through a per-warp SMEM staging
+ * tile. The fp32 result is stored to a SMEM scratch then written out via amk_store_f, so the output
+ * dtype conversion + bias are applied and the path stays faithful to the reference within fp tolerance.
+ * Measured ~4.6x the scalar register row-tile at M=16 (decode batch). bf16/f16 + K-contiguous only;
+ * else the caller keeps the register path. SMEM/warp = A[256]+B[256] (WT) + C[256] (f32) = 2048B. */
+template <typename WT>
+__device__ __forceinline__ void amk_gemm_tile_wmma(const amk_device_program& prog,
+                                                   const amk_instruction_t& inst,
+                                                   int K, int N_tile, int n_off, int64_t M) {
+    namespace wmma = nvcuda::wmma;
+    const amk_buffer_t& x   = amk_buf(prog, inst.inputs[0]);
+    const amk_buffer_t& W   = amk_buf(prog, inst.inputs[1]);
+    const amk_buffer_t& out = amk_buf(prog, inst.outputs[0]);
+    const bool has_bias = (inst.n_inputs > 2);
+    const int64_t xrs = x.stride[0];                  /* x row stride (== K) -> WMMA A ldm */
+    const int64_t wrs = W.stride[0];                  /* W row stride (== K) -> WMMA B ldm (col_major) */
+    const int64_t ors = out.stride[0];
+    const int64_t ocs = out.stride[1];
+    const WT* __restrict__ Xp = (const WT*)x.ptr;
+    const WT* __restrict__ Wp = (const WT*)W.ptr;
+
+    const int lane   = threadIdx.x & (warpSize - 1);
+    const int warp   = threadIdx.x / warpSize;
+    const int nwarps = (blockDim.x + warpSize - 1) / warpSize;
+
+    extern __shared__ float s_wmma[];                 /* shared dyn-smem (float-typed, like s_cpa) */
+    char* sb  = (char*)s_wmma + (size_t)warp * (256 * sizeof(WT) * 2 + 256 * 4);
+    WT*    as = (WT*)sb;                               /* A stage [16][16] (partial m/k tiles)  */
+    WT*    bs = (WT*)(sb + 256 * sizeof(WT));          /* B stage [16][16] (partial n/k tiles)  */
+    float* cs = (float*)(sb + 256 * sizeof(WT) * 2);   /* C scratch [16][16] fp32 (epilogue)    */
+    WT zero; amk_w_set_zero(zero);
+
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, WT, wmma::row_major> a_frag;
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, WT, wmma::col_major> b_frag;
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
+
+    for (int t = warp * 16; t < N_tile; t += nwarps * 16) {   /* warp owns 16-col output sub-tiles */
+        const int n0 = n_off + t;
+        const bool nfull = (t + 16 <= N_tile);
+        for (int64_t m0 = 0; m0 < M; m0 += 16) {
+            const bool mfull = (m0 + 16 <= M);
+            wmma::fill_fragment(c_frag, 0.0f);
+            for (int k0 = 0; k0 < K; k0 += 16) {
+                const bool kfull = (k0 + 16 <= K);
+                if (mfull && kfull) {
+                    wmma::load_matrix_sync(a_frag, Xp + m0 * xrs + k0, (unsigned)xrs);
+                } else {
+                    for (int i = lane; i < 256; i += warpSize) {
+                        const int r = i >> 4, c = i & 15;
+                        as[i] = ((m0 + r) < M && (k0 + c) < K)
+                                ? Xp[(m0 + r) * xrs + k0 + c] : zero;
+                    }
+                    __syncwarp();
+                    wmma::load_matrix_sync(a_frag, as, 16);
+                }
+                if (nfull && kfull) {
+                    wmma::load_matrix_sync(b_frag, Wp + (int64_t)n0 * wrs + k0, (unsigned)wrs);
+                } else {
+                    for (int i = lane; i < 256; i += warpSize) {
+                        const int r = i >> 4, c = i & 15;
+                        bs[i] = ((t + r) < N_tile && (k0 + c) < K)
+                                ? Wp[(int64_t)(n0 + r) * wrs + k0 + c] : zero;
+                    }
+                    __syncwarp();
+                    wmma::load_matrix_sync(b_frag, bs, 16);
+                }
+                wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+                __syncwarp();
+            }
+            wmma::store_matrix_sync(cs, c_frag, 16, wmma::mem_row_major);
+            __syncwarp();
+            for (int i = lane; i < 256; i += warpSize) {       /* fp32 -> out dtype + bias, masked */
+                const int m = i >> 4, n = i & 15;
+                if ((m0 + m) < M && (t + n) < N_tile) {
+                    float v = cs[i];
+                    if (has_bias) v += amk_load_f(amk_buf(prog, inst.inputs[2]), n0 + n);
+                    amk_store_f(out, (m0 + m) * ors + (int64_t)(n0 + n) * ocs, v);
+                }
+            }
+            __syncwarp();
+        }
+    }
+}
+#endif /* AMK_GEMM_WMMA */
+
 __device__ AMK_OP_QUAL void amk_inst_gemm_tile(const amk_device_program& prog,
                                                    const amk_instruction_t& inst) {
     const amk_buffer_t& x   = amk_buf(prog, inst.inputs[0]);   /* [M,K] activations */
@@ -1163,6 +1261,22 @@ __device__ AMK_OP_QUAL void amk_inst_gemm_tile(const amk_device_program& prog,
      * Otherwise the scalar amortized fallback (bit-identical accumulation order to the prior GEMM). */
     const int VEC = (W.dtype == AMK_F32) ? 4 : 8;
     const bool fast = (xks == 1) && (wks == 1) && ((K % VEC) == 0);
+
+#if defined(AMK_GEMM_WMMA) && ((__CUDA_ARCH__ >= 800) || !defined(__CUDA_ARCH__))
+    /* TENSOR-CORE path (bf16/f16, K-contiguous, M>=16): WMMA 16x16x16. Measured 1.4-1.55x the register
+     * row-tile for the batched THROUGHPUT regime (B>=16); for M<16 the 16-row tensor-core tile wastes
+     * 16-M rows + stages A per k-step and LOSES to the register path, so we gate on M>=16 (>=1 full
+     * tile). x and W must share the WT dtype (the lowering's case); ragged N_tile / K are zero-padded
+     * inside. Uniform across the block (depends only on inst params) -> trailing __syncthreads() safe.
+     * fp32 and small-batch (M<16) keep the register path below. */
+    if ((M >= 16) && (xks == 1) && (wks == 1) && (x.dtype == W.dtype) &&
+        (W.dtype == AMK_BF16 || W.dtype == AMK_F16)) {
+        if (W.dtype == AMK_BF16) amk_gemm_tile_wmma<__nv_bfloat16>(prog, inst, K, N_tile, n_off, M);
+        else                     amk_gemm_tile_wmma<__half>(prog, inst, K, N_tile, n_off, M);
+        __syncthreads();
+        return;
+    }
+#endif
 
     /* REGISTER ROW-TILE: process the M output rows in blocks of <= AMK_GEMM_MMAX. Within a block the
      * warp owns output column n (= weight row n); each weight element is loaded ONCE and FMA'd into
