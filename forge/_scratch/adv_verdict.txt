@@ -1,0 +1,10 @@
+ADVERSARIAL RE-MEASURE -- two independent passes vs CLAIM
+                 run1     run2    CLAIM   verdict
+achieved peak    807.3    796.7   826.7   reproduces (all <896 spec; ~20% power-cap drift)
+empirical knee   10.75    10.81   11.2    reproduces (8-12 band)
+8-warp GB/s      702.6    691.7   698.4   reproduces (~700)
+8-warp %peak     87.0     86.8    84.5    reproduces (mildly under-saturated)
+HBM latency ns   329.4    346.6   327.3   reproduces (~330)
+halve 768->384   -5.5%    -2.5%   (n/a)   NO jump => HBM-bound, not L2
+64MB(=L2) read   1167.7   1197.3  (n/a)   cache control JUMPS >896 => guard works
+M3 spread        0.63%    1.03%   0.4%    occupancy (not block-shape) drives curve

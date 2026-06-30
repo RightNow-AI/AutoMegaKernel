@@ -1,0 +1,88 @@
+[forge] GPU=NVIDIA GeForce RTX 5090 Laptop GPU cc=12.0 clocks: 405 MHz, 14001 MHz, 922 MHz, 3090 MHz, 0x0000000000000000
+[forge] driver attrs: {'num_sms': 82, 'smem_per_sm': 102400, 'max_threads_per_sm': 1536, 'l2_bytes': 67108864, 'regs_per_sm': 65536, 'max_blocks_per_sm': 24, 'smem_optin': 101376, 'warp': 32}
+[forge] verified lattice: 91 points, warps/SM 2..48
+[forge] fit: peak=896.5 GB/s warps_half=2.881 r2=0.7933 (achieved max sample 826.7)
+[forge] M3 crosscheck @16 warps/SM spread=0.004: [{'tpb': 128, 'blocks': 4, 'smem': 19457, 'gbs': 783.9}, {'tpb': 256, 'blocks': 2, 'smem': 33025, 'gbs': 784.3}, {'tpb': 512, 'blocks': 1, 'smem': 50177, 'gbs': 787.4}]
+[forge] M2 ILP sweep (near-max occ): {U: GB/s} = {1:770, 2:784, 4:756, 8:747, 16:755}
+[forge] M4 anchor: {'copy_k_gbs': 642.9, 'torch_copy_gbs': 699.1, 'peak_bandwidth_ref_gbs': 746.5, 'read_full_gbs': 546.4, 'read_half_gbs': 539.5, 'halve_jump_frac': -0.012, 'read_sub_l2_gbs': 1037.7, 'l2_contaminated': False}
+[forge] M5 latency=327.3 ns (over [96, 192, 384] MB); table={'0.03': 32.96, '0.25': 112.69, '1': 123.15, '4': 125.14, '16': 125.55, '48': 133.67, '96': 326.74, '192': 327.27, '384': 344.91}
+[forge] saved model -> C:/Users/jaber/RightNow-Full/AutoMegaKernel/forge/gpu_model_rtx5090.json
+
+================= FORGE GpuModel (RTX 5090 Laptop) =================
+  fitted peak           : 896.5 GB/s   (r2=0.7933, hyperbolic)
+  achieved max sample   : 826.7 GB/s
+  warps_half            : 2.881 warps/SM
+  95% knee              : 54.73 warps/SM
+  max warps/SM (live)   : 48  (blocks/SM cap 24)
+  HBM latency           : 327.3 ns
+  MLP bytes in flight   : 287 KB total (3578 B/SM)
+  bytes_in_flight/warp  : 65 B
+  --- AMK megakernel point (1 block/SM x 256 thr = 8 warps/SM) ---
+  8 warps/SM achieved   : 659.2 GB/s = 73.5% of fitted peak
+  8 warps vs knee        : BELOW knee (starved)
+  16 warps/SM (2 blk/SM): 759.7 GB/s = 84.7%
+  curve (warps/SM -> GB/s):
+       2 :   205.3 GB/s  (n=1)
+       3 :   299.8 GB/s  (n=1)
+       4 :   395.7 GB/s  (n=2)
+       5 :   485.3 GB/s  (n=1)
+       6 :   569.8 GB/s  (n=3)
+       7 :   639.4 GB/s  (n=1)
+       8 :   699.1 GB/s  (n=3)  <- 8-warp AMK point
+       9 :   737.4 GB/s  (n=1)
+      10 :   767.7 GB/s  (n=2)
+      12 :   796.6 GB/s  (n=5)
+      14 :   815.2 GB/s  (n=2)
+      15 :   817.7 GB/s  (n=2)
+      16 :   821.7 GB/s  (n=4)
+      18 :   821.7 GB/s  (n=3)
+      20 :   824.2 GB/s  (n=3)
+      21 :   824.0 GB/s  (n=2)
+      22 :   825.1 GB/s  (n=1)
+      24 :   823.9 GB/s  (n=7)
+      25 :   819.5 GB/s  (n=1)
+      26 :   823.7 GB/s  (n=1)
+      27 :   822.4 GB/s  (n=1)
+      28 :   820.8 GB/s  (n=3)
+      30 :   819.9 GB/s  (n=4)
+      32 :   820.6 GB/s  (n=5)
+      33 :   818.4 GB/s  (n=1)
+      34 :   816.6 GB/s  (n=1)
+      35 :   819.9 GB/s  (n=2)
+      36 :   812.5 GB/s  (n=5)
+      38 :   805.4 GB/s  (n=1)
+      39 :   812.1 GB/s  (n=1)
+      40 :   809.5 GB/s  (n=4)
+      42 :   800.0 GB/s  (n=4)
+      44 :   787.2 GB/s  (n=2)
+      45 :   795.6 GB/s  (n=2)
+      46 :   791.3 GB/s  (n=1)
+      48 :   786.3 GB/s  (n=8)
+
+  ILP sweep (near-max occ, {U: GB/s}): {1: 770.0, 2: 784.0, 4: 756.0, 8: 747.0, 16: 755.0}
+  copy/L2 anchor: {"copy_k_gbs": 642.9, "torch_copy_gbs": 699.1, "peak_bandwidth_ref_gbs": 746.5, "read_full_gbs": 546.4, "read_half_gbs": 539.5, "halve_jump_frac": -0.012, "read_sub_l2_gbs": 1037.7, "l2_contaminated": false}
+  M3 crosscheck: {"target_warps": 16, "configs": [{"tpb": 128, "blocks": 4, "smem": 19457, "gbs": 783.9}, {"tpb": 256, "blocks": 2, "smem": 33025, "gbs": 784.3}, {"tpb": 512, "blocks": 1, "smem": 50177, "gbs": 787.4}], "spread_frac": 0.004456063501965903}
+  latency table: {"ns_per_hop_by_mb": {"0.03": 32.96, "0.25": 112.69, "1": 123.15, "4": 125.14, "16": 125.55, "48": 133.67, "96": 326.74, "192": 327.27, "384": 344.91}, "l2_mb": 67.1, "plateau_sets_mb": [96, 192, 384], "hops": 2097152}
+  clock state: 14001 MHz, 14001 MHz, 2812 MHz, 3090 MHz, 0x0000000000000000
+
+----------------- KernelAdvisor (real megakernel) -----------------
+ninja: no work to do.
+  driver footprint: regs=111 static_smem=400 tpb=256 blocks/SM=2 warps/block=8
+  cooperative ceiling ok @tpb=256: True; @tpb=512: True (False => grid.sync would break)
+[STARVED] 16 warps/SM < 54.7 knee: WARP-STARVED, raise occupancy or ILP to saturate HBM
+  current 16 warps/SM -> 760 GB/s (84.7% of achieved peak); knee at 54.7 warps/SM; headroom x1.18
+   [DO] raise_blocks_per_sm: {'blocks_per_sm': 3} -> 24 warps/SM, 800 GB/s (x1.05) [MegakernelVM(blocks_per_sm=N)]
+   [DO] raise_blocks_per_sm: {'blocks_per_sm': 4} -> 32 warps/SM, 822 GB/s (x1.08) [MegakernelVM(blocks_per_sm=N)]
+   [DO] raise_blocks_per_sm: {'blocks_per_sm': 5} -> 40 warps/SM, 836 GB/s (x1.10) [MegakernelVM(blocks_per_sm=N)]
+   [DO] raise_blocks_per_sm: {'blocks_per_sm': 6} -> 48 warps/SM, 846 GB/s (x1.11) [MegakernelVM(blocks_per_sm=N)]
+   [DO] cut_dynamic_smem: {'smem_bytes_per_block': 0} -> 24 warps/SM, 800 GB/s (x1.00) [ScheduleConfig.smem_bytes_per_block] reg+smem co-limit: only helps if smem (not registers) is the binder
+   [NO] raise_threads_per_block: {'threads_per_block': '>256'} -> 0 warps/SM, 0 GB/s (x0.00) [ScheduleConfig.threads_per_block] ILLEGAL for cooperative megakernel: tpb>256 -> max_coresident<num_sms breaks grid.sync
+
+----------------- H100 EXTRAPOLATION (model PREDICTION) ------------
+  H100: peak=3089 GB/s, 132 SMs, assumed HBM latency 450 ns
+  predicted knee        : 161.1 warps/SM  (vs 54.7 on the 5090)
+  AMK 8 warps/SM on H100: ~5.0% of peak by the streaming Little's-law model
+  => the SAME 8 warps/SM that saturates the 5090 is WARP-STARVED on the H100.
+  (PREDICTION: H100 high-warp region + knee are UNMEASURED locally; only an H100 run confirms. The measured AMK-on-H100 ~8% of spec is even lower, the in-megakernel register-frame haircut compounding this streaming-model starvation.)
+
+forge gpu:rtx5090 peak_gbs:896.5 knee_warps:54.73 mk8_pct:73.5 latency_ns:327.3
