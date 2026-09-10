@@ -489,6 +489,31 @@ TARGETS: dict[str, GpuTarget] = {
         max_regs_per_thread=255, l2_bytes=50 * 1024 * 1024, hbm_bytes=192 * 1024**3,
         hbm_bandwidth_gbs=8000.0, fp16_tflops=2250.0, clock_ghz=1.86,
         supports_cooperative=True, wddm_tdr=False, note="Datacenter Blackwell, HBM3e. Spec only."),
+    "h20": GpuTarget(
+        name="h20",
+        sm_arch=90,
+        num_sms=78,
+        smem_bytes_per_sm=233472,
+        smem_bytes_per_block_optin=232448,
+        regs_per_sm=65536,
+        max_threads_per_sm=2048,
+        max_regs_per_thread=255,
+        l2_bytes=60 * 1024 * 1024,
+        hbm_bytes=96 * 1024**3,
+        hbm_bandwidth_gbs=4000.0,
+        fp16_tflops=148.0,
+        clock_ghz=0.0,
+        supports_cooperative=True,
+        wddm_tdr=False,
+        measured_bw_gbs=3712.3,
+        note=(
+            "NVIDIA H20, Hopper sm_90, 96GB HBM3. "
+            "78 SMs, 60 MiB L2, and SMEM limits observed on real H20 silicon. "
+            "Spec HBM bandwidth/FP16 throughput are retained as target parameters; "
+            "measured_bw_gbs=3712.3 from eval/peak_bandwidth.py "
+            "(median of three independent peak_gbs runs)."
+        ),
+    ),
     "h100": GpuTarget(
         name="h100", sm_arch=90, num_sms=132, smem_bytes_per_sm=233472,
         smem_bytes_per_block_optin=232448, regs_per_sm=65536, max_threads_per_sm=2048,
