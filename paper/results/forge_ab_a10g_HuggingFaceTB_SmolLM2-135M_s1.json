@@ -1,0 +1,26 @@
+{
+  "model": "HuggingFaceTB/SmolLM2-135M",
+  "gpu": "a10g",
+  "iters": 12,
+  "seed": 1,
+  "device_name": "NVIDIA A10",
+  "builtin": {
+    "best_us": 8489.4242,
+    "baseline_us": 14382.9598,
+    "speedup_vs_baseline": 1.694,
+    "iters_to_best": 10,
+    "n_kept": 4,
+    "best_pct_roofline": 946.67,
+    "wall_s": 39.1
+  },
+  "forge": {
+    "best_us": 8700.3841,
+    "baseline_us": 14586.3681,
+    "speedup_vs_baseline": 1.677,
+    "iters_to_best": 10,
+    "n_kept": 4,
+    "best_pct_roofline": 970.195,
+    "wall_s": 18.0
+  },
+  "forge_vs_builtin": 0.9758
+}

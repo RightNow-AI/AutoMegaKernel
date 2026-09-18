@@ -1,0 +1,26 @@
+{
+  "model": "toy",
+  "gpu": "l4",
+  "iters": 4,
+  "seed": 0,
+  "device_name": "NVIDIA L4",
+  "builtin": {
+    "best_us": 2205.6961,
+    "baseline_us": 2205.6961,
+    "speedup_vs_baseline": 1.0,
+    "iters_to_best": 0,
+    "n_kept": 1,
+    "best_pct_roofline": 236920.267,
+    "wall_s": 65.9
+  },
+  "forge": {
+    "best_us": 1979.3921,
+    "baseline_us": 2205.6961,
+    "speedup_vs_baseline": 1.114,
+    "iters_to_best": 0,
+    "n_kept": 1,
+    "best_pct_roofline": 212612.293,
+    "wall_s": 62.2
+  },
+  "forge_vs_builtin": 1.1143
+}

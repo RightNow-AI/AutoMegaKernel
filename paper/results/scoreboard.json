@@ -1,0 +1,38 @@
+{
+  "gpu": "H100",
+  "dtype": "bf16",
+  "metric": "batch-1 decode ms/token",
+  "baseline": "vLLM",
+  "rows": [
+    {
+      "model": "NousResearch/Llama-2-7b-hf",
+      "amk_ms_per_token": 20.585952758789062,
+      "vllm_ms_per_token": 8.352672593749944,
+      "ratio": 2.464594718365104,
+      "amk_roofline_pct": 19.54213508238929,
+      "correct": true,
+      "amk_error": null,
+      "bottleneck": "GEMV bandwidth: 20% of roofline (SMEM-capped occupancy)"
+    },
+    {
+      "model": "HuggingFaceTB/SmolLM2-1.7B",
+      "amk_ms_per_token": 11.103743553161621,
+      "vllm_ms_per_token": 2.9468283125000383,
+      "ratio": 3.7680320587599474,
+      "amk_roofline_pct": 9.201556567723381,
+      "correct": true,
+      "amk_error": null,
+      "bottleneck": "GEMV bandwidth: 9% of roofline (SMEM-capped occupancy)"
+    },
+    {
+      "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+      "amk_ms_per_token": 8.288448333740234,
+      "vllm_ms_per_token": 2.3088455937498864,
+      "ratio": 3.589866882470318,
+      "amk_roofline_pct": 7.9236218582330835,
+      "correct": true,
+      "amk_error": null,
+      "bottleneck": "GEMV bandwidth: 8% of roofline (SMEM-capped occupancy)"
+    }
+  ]
+}

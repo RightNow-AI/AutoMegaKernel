@@ -14,37 +14,37 @@
   "group": 128,
   "paths": {
     "bf16": {
-      "token_us": 1537.4,
-      "kernel_us": 1324.1,
+      "token_us": 1492.8,
+      "kernel_us": 1376.4,
       "weight_MB": 622.9,
       "weight_bytes": 622891008,
       "roofline_floor_us": 695.2,
-      "pct_roofline": 52.5,
+      "pct_roofline": 50.5,
       "tasks": 1522,
       "speedup_vs_bf16_token": 1.0,
       "speedup_vs_bf16_kernel": 1.0
     },
     "int8": {
-      "token_us": 1371.2,
-      "kernel_us": 1126.6,
+      "token_us": 1496.2,
+      "kernel_us": 1167.0,
       "weight_MB": 380.8,
       "weight_bytes": 380841984,
       "roofline_floor_us": 425.0,
-      "pct_roofline": 37.7,
+      "pct_roofline": 36.4,
       "tasks": 1522,
-      "speedup_vs_bf16_token": 1.12,
+      "speedup_vs_bf16_token": 1.0,
       "speedup_vs_bf16_kernel": 1.18
     },
     "int4": {
-      "token_us": 1450.6,
-      "kernel_us": 1207.3,
+      "token_us": 1830.8,
+      "kernel_us": 1221.1,
       "weight_MB": 257.9,
       "weight_bytes": 257896448,
       "roofline_floor_us": 287.8,
-      "pct_roofline": 23.8,
+      "pct_roofline": 23.6,
       "tasks": 1522,
-      "speedup_vs_bf16_token": 1.06,
-      "speedup_vs_bf16_kernel": 1.1
+      "speedup_vs_bf16_token": 0.82,
+      "speedup_vs_bf16_kernel": 1.13
     }
   },
   "int4_roofline_floor_drop_vs_bf16": 2.42,

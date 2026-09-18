@@ -1,0 +1,26 @@
+{
+  "model": "HuggingFaceTB/SmolLM2-135M",
+  "gpu": "l40s",
+  "iters": 12,
+  "seed": 0,
+  "device_name": "NVIDIA L40S",
+  "builtin": {
+    "best_us": 6184.9601,
+    "baseline_us": 11026.9442,
+    "speedup_vs_baseline": 1.783,
+    "iters_to_best": 9,
+    "n_kept": 4,
+    "best_pct_roofline": 993.162,
+    "wall_s": 29.2
+  },
+  "forge": {
+    "best_us": 6560.256,
+    "baseline_us": 11089.0083,
+    "speedup_vs_baseline": 1.69,
+    "iters_to_best": 7,
+    "n_kept": 5,
+    "best_pct_roofline": 1053.425,
+    "wall_s": 13.3
+  },
+  "forge_vs_builtin": 0.9428
+}

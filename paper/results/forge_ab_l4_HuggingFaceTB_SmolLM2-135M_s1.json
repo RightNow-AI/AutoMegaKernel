@@ -1,0 +1,26 @@
+{
+  "model": "HuggingFaceTB/SmolLM2-135M",
+  "gpu": "l4",
+  "iters": 12,
+  "seed": 1,
+  "device_name": "NVIDIA L4",
+  "builtin": {
+    "best_us": 11053.1044,
+    "baseline_us": 14985.1203,
+    "speedup_vs_baseline": 1.356,
+    "iters_to_best": 1,
+    "n_kept": 2,
+    "best_pct_roofline": 616.275,
+    "wall_s": 36.1
+  },
+  "forge": {
+    "best_us": 11255.2958,
+    "baseline_us": 14854.6562,
+    "speedup_vs_baseline": 1.32,
+    "iters_to_best": 3,
+    "n_kept": 3,
+    "best_pct_roofline": 627.549,
+    "wall_s": 18.2
+  },
+  "forge_vs_builtin": 0.982
+}
